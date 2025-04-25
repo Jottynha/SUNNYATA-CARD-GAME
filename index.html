@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini Card Game</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div id="game-board">
+    <div id="deck" class="zone"><div id="deck-count">10</div></div>
+    <div id="hand" class="zone"></div>
+    <div class="zones-row">
+        <div id="your-graveyard" class="zone graveyard">
+        <h4>Seu Cemitério</h4>
+        </div>
+        <div id="bot-graveyard" class="zone graveyard">
+        <h4>Cemitério do Bot</h4>
+        </div>
+      <div id="field" class="zone field"><h3>Seu Campo</h3></div>
+      <div id="bot-field" class="zone field"><h3>Campo do Bot</h3></div>
+    </div>
+    <div id="battle-log" class="battle-log">Comece comprando cartas!</div>
+  </div>
+
+  <!-- Modal de informação -->
+  <div id="card-modal" class="modal">
+    <div class="modal-content">
+      <h2 id="card-name"></h2>
+      <p id="card-desc"></p>
+      <button id="modal-close">Fechar</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

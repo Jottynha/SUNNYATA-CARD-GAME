@@ -12,10 +12,10 @@ export const allCards = [
       atk: 3,
       def: 2,
       img: 'cartas/Guerreiro.png',
-      effect: (card, context) => {
-        if (context.playerHP < 10) {
-          card.atk += 2;
-          context.log(`${card.name} entra em fúria! +2 ATK`);
+      effect: (self, context) => {
+        if (context.fase === 'preparacao') {
+          context.log(`${self.name} se fortalece! Ganha +1 ATK!`);
+          self.atk += 1;
         }
       }
     },

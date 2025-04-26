@@ -8,17 +8,18 @@ let playerHP = 10;
 let opponentHP = 10;
 let canDrawThisTurn = true;
 let turn = 0;
-const exampleCards = [
-  { name: 'Martin', atk: 5, def: 3, img: 'cartas/Martin.png' },
-  { name: 'Dragão', atk: 3, def: 4, img: 'cartas/Dragao.jpeg' },
-  { name: 'Elfa', atk: 4, def: 2, img: 'cartas/Elfa.jpeg' },
-  { name: 'Golem', atk: 2, def: 5, img: 'cartas/Golem.jpeg' },
-  { name: 'Fada', atk: 3, def: 3, img: 'cartas/Fada.jpeg' }
-];
 let playerHand = []; // cartas na mão
 let selectedHandCard = null
 let deck = [];
+let opponentDeck = [];
 let selectedCards = []; // Cartas selecionadas pelo jogador para o deck
+
+function createOpponentDeck() {
+  for (let i = 0; i < 20; i++) { // 20 cartas
+    const randomCard = { ...allCards[Math.floor(Math.random() * allCards.length)] };
+    opponentDeck.push(randomCard);
+  }
+}
 
 function aplicarEfeitoCarta(card) {
     const context = {
@@ -36,6 +37,7 @@ function aplicarEfeitoCarta(card) {
   }
   
 function initDeckManager() {
+    createOpponentDeck();
     const availableCardsContainer = document.getElementById('available-cards');
     availableCardsContainer.innerHTML = ''; // Limpar a área de cartas
   
@@ -311,16 +313,36 @@ function startCombatPhase() {
   }
 
   function opponentTurn() {
-    // Oponente compra carta aleatória
     const emptyIndices = opponentField
       .map((c, i) => (c === null ? i : -1))
       .filter(i => i !== -1);
   
-    if (emptyIndices.length > 0) {
-      const slotIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
-      const randomCard = { ...exampleCards[Math.floor(Math.random() * exampleCards.length)] };
-      opponentField[slotIndex] = randomCard;
-      log(`Oponente invocou ${randomCard.name} no slot ${slotIndex + 1}`);
+    if (emptyIndices.length > 0 && opponentDeck.length > 0) {
+      const drawnCard = opponentDeck.pop(); // Compra do deck (última carta)
+  
+      // Tentar escolher o melhor campo para a carta
+      let bestSlot = -1;
+      let canDestroy = false;
+  
+      for (let slot of emptyIndices) {
+        const playerCard = playerField[slot];
+  
+        if (playerCard) {
+          if (drawnCard.atk >= playerCard.def) {
+            bestSlot = slot;
+            canDestroy = true;
+            break; // Achou um alvo que pode destruir
+          }
+        }
+      }
+  
+      // Se não encontrou alvo bom, coloca no primeiro slot vazio
+      if (bestSlot === -1) {
+        bestSlot = emptyIndices[0];
+      }
+  
+      opponentField[bestSlot] = drawnCard;
+      log(`Oponente invocou ${drawnCard.name} no slot ${bestSlot + 1}`);
     }
   
     // Fase de ataque do oponente
@@ -343,13 +365,13 @@ function startCombatPhase() {
         log(`${attacker.name} ataca você diretamente!`);
         playerHP -= attacker.atk;
         if (playerHP <= 0) {
-        playerHP = 0;
-        render();
-        setTimeout(() => {
+          playerHP = 0;
+          render();
+          setTimeout(() => {
             alert('Você perdeu!');
             restartGame();
-        }, 100);
-        return;
+          }, 100);
+          return;
         }
       }
     }
@@ -358,9 +380,7 @@ function startCombatPhase() {
     log('--- Turno do Oponente Encerrado ---');
   }
   
-// Adiciona cartas iniciais ao campo
-playerField[0] = exampleCards[0];
-opponentField[0] = exampleCards[1];
+  
 document.getElementById('end-prep-btn').addEventListener('click', () => {
     log('--- Fase de Combate Iniciada ---');
     startCombatPhase();

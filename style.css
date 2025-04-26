@@ -99,3 +99,43 @@ h1 { margin-top: 20px; }
     border-color: #f00;
   }
   
+  button {
+    background-color: #222; /* Cor de fundo escura */
+    color: #eee;            /* Cor da fonte quase branca */
+    border: 2px solid #555; /* Borda discreta */
+    border-radius: 8px;     /* Cantos arredondados */
+    padding: 10px 20px;     /* Espaçamento interno */
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 5px;
+  }
+  
+  button:hover {
+    background-color: #333; /* Fica um pouco mais claro no hover */
+    border-color: #888;     /* Borda também clareia */
+  }
+  
+  button:active {
+    background-color: #111; /* Quando clica, mais escuro ainda */
+    transform: scale(0.98); /* Efeito de 'apertar' */
+  }
+  
+  #draw-btn {
+    background-color: #2a2a40;
+    border-color: #5c5c8a;
+  }
+  
+  #draw-btn:hover {
+    background-color: #383862;
+  }
+  
+  #end-prep-btn {
+    background-color: #402a2a;
+    border-color: #8a5c5c;
+  }
+  
+  #end-prep-btn:hover {
+    background-color: #623838;
+  }
+  

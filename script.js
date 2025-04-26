@@ -7,6 +7,7 @@ let selectedCard = null; // Carta selecionada para combate
 let playerHP = 10;
 let opponentHP = 10;
 let canDrawThisTurn = true;
+let turn = 0;
 const exampleCards = [
   { name: 'Martin', atk: 5, def: 3, img: 'cartas/Martin.png' },
   { name: 'Dragão', atk: 3, def: 4, img: 'cartas/Dragao.jpeg' },
@@ -19,21 +20,14 @@ let selectedHandCard = null
 let deck = [];
 let selectedCards = []; // Cartas selecionadas pelo jogador para o deck
 
-
-// Função para inicializar o jogo
-function init() {
-  log('Jogo iniciado');
-  render();
-}
-
 function aplicarEfeitoCarta(card) {
     const context = {
-      playerHP: jogador.hp,
-      enemiesOnField: campoInimigo.length,
-      turn: turnoAtual,
-      playerCardsOnField: campoJogador.length,
-      deckSize: deckJogador.length,
-      log: (msg) => adicionarLog(msg)
+      playerHP: playerHP,
+      enemiesOnField: opponentField.length,
+      turn: turn,
+      playerCardsOnField: playerField.length,
+      deckSize: deck.length,
+      log: (msg) => log(msg)
     };
   
     if (card.effect) {
@@ -199,6 +193,7 @@ function combat(attacker, defender, attackerIndex, defenderIndex) {
 
   render();
   log('--- Fim do Combate ---');
+  turn++;
 }
 
 // Função para registrar logs
@@ -242,11 +237,13 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
       log('Você já comprou uma carta neste turno!');
       return;
     }
-  
-    const randomIndex = Math.floor(Math.random() * deck.length);
-    const newCard = getCardCopy(deck[randomIndex].name);
-    playerHand.push(newCard);
-    log(`Você comprou a carta: ${newCard.name}`);
+    if (deck.length > 0) {
+      const card = deck.pop();
+      playerHand.push(card);
+      log(`Você comprou a carta: ${card.name}!`);
+    } else {
+      log('O deck está vazio!');
+    }
     render();
   
     canDrawThisTurn = false; // Bloqueia nova compra até o próximo turno
@@ -272,6 +269,12 @@ document.querySelectorAll('.opponent-slot').forEach((slot, index) => {
 
 
 function startCombatPhase() {
+    for (let i = 0; i < playerField.length; i++) {
+      const card = playerField[i];
+      if (card) {
+        aplicarEfeitoCarta(card);
+      }
+    }
     for (let i = 0; i < 3; i++) {
       const attacker = playerField[i];
       const defender = opponentField[i];
@@ -385,20 +388,6 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
     }
   }
   
-  // Função para "comprar" uma carta do deck
-  function buyCard() {
-    const cartaComprada = deckJogador.pop();
-    aplicarEfeitoCarta(cartaComprada);
-    if (deck.length > 0) {
-      // Compra uma carta aleatória do deck
-      const card = deck.pop();
-      playerHand.push(card);
-      log(`Você comprou a carta: ${card.name}`);
-      updateHandUI(); // Atualiza a interface da mão
-    } else {
-      log('O deck está vazio!');
-    }
-  }
   
   // Função para atualizar a interface da mão do jogador
   function updateHandUI() {

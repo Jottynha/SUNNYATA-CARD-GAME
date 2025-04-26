@@ -138,4 +138,61 @@ h1 { margin-top: 20px; }
   #end-prep-btn:hover {
     background-color: #623838;
   }
+  #opponent-extra-areas,
+#player-extra-areas {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+#opponent-deck-grave,
+#player-deck-grave {
+  display: flex;
+  gap: 20px;
+}
+
+.deck-grave {
+  position: relative;
+  border: 2px solid #333;
+  padding: 10px;
+  width: 140px;
+  height: 80px;
+  text-align: center;
+  background-color: #3a3030;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: 0.3s;
+}
+
+.deck-grave:hover {
+  background-color: #ddd;
+}
   
+  #modal {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgb(94, 77, 77);
+    border: 2px solid black;
+    padding: 20px;
+    z-index: 1000;
+    max-width: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none;
+  }
+  
+  #modal h3 {
+    margin-top: 0;
+  }
+  
+  #modal ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  #modal li {
+    margin: 5px 0;
+  }
+    

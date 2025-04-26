@@ -12,6 +12,8 @@ let playerHand = []; // cartas na mão
 let selectedHandCard = null
 let deck = [];
 let opponentDeck = [];
+let grave = [];
+let opponentGrave = [];
 let selectedCards = []; // Cartas selecionadas pelo jogador para o deck
 
 function createOpponentDeck() {
@@ -190,6 +192,7 @@ function combat(attacker, defender, attackerIndex, defenderIndex) {
 
   if (defender.def <= 0) {
     log(`${defender.name} destruído`);
+    opponentGrave.push(defender);
     opponentField[defenderIndex] = null;
   }
 
@@ -286,6 +289,7 @@ function startCombatPhase() {
         defender.def -= attacker.atk;
   
         if (defender.def <= 0) {
+          grave.push(defender);
           log(`${defender.name} foi destruído!`);
           opponentField[i] = null;
         } else {
@@ -355,6 +359,7 @@ function startCombatPhase() {
         defender.def -= attacker.atk;
   
         if (defender.def <= 0) {
+          grave.push(defender);
           log(`${defender.name} foi destruído!`);
           playerField[i] = null;
         } else {
@@ -419,6 +424,26 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       handContainer.appendChild(cardElement);
     });
   }
+  const modal = document.createElement('div');
+modal.id = 'modal';
+document.body.appendChild(modal);
+
+function showCards(title, cards) {
+  modal.innerHTML = `
+    <h3>${title}</h3>
+    <ul>
+      ${cards.length ? cards.map(card => `<li>${card.name}</li>`).join('') : '<li>Vazio</li>'}
+    </ul>
+    <button onclick="document.getElementById('modal').style.display='none'">Fechar</button>
+  `;
+  modal.style.display = 'block';
+}
+
+// Eventos de clique
+document.getElementById('player-deck').addEventListener('click', () => showCards('Deck (Você)', deck));
+document.getElementById('player-grave').addEventListener('click', () => showCards('Cemitério (Você)', grave));
+document.getElementById('opponent-deck').addEventListener('click', () => showCards('Deck (Oponente)', opponentDeck));
+document.getElementById('opponent-grave').addEventListener('click', () => showCards('Cemitério (Oponente)', opponentGrave));
   
 // Inicializa o jogo
 window.onload = () => initDeckManager();

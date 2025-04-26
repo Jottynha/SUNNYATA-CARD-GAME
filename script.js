@@ -4,12 +4,14 @@ let opponentField = [null, null, null]; // Slots do oponente
 let selectedCard = null; // Carta selecionada para combate
 let playerHP = 10;
 let opponentHP = 10;
+let canDrawThisTurn = true;
 const exampleCards = [
   { name: 'Martin', atk: 5, def: 3, img: 'cartas/Martin.png' },
   { name: 'Dragão', atk: 3, def: 4, img: 'cartas/Dragao.jpeg' },
   { name: 'Elfa', atk: 4, def: 2, img: 'cartas/Elfa.jpeg' }
 ];
-
+let playerHand = []; // cartas na mão
+let selectedHandCard = null
 
 
 // Função para inicializar o jogo
@@ -18,8 +20,12 @@ function init() {
   render();
 }
 
-let playerHand = []; // cartas na mão
-let selectedHandCard = null
+function getCardCopy(cardName) {
+    const cardTemplate = exampleCards.find(c => c.name === cardName);
+    return { ...cardTemplate }; // sempre retorna uma nova instância
+  }
+  
+
 
 // Função para renderizar o campo e a mão
 function render() {
@@ -148,12 +154,20 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
   
   // Comprar carta aleatória
   document.getElementById('draw-btn').addEventListener('click', () => {
+    if (!canDrawThisTurn) {
+      log('Você já comprou uma carta neste turno!');
+      return;
+    }
+  
     const randomIndex = Math.floor(Math.random() * exampleCards.length);
-    const newCard = { ...exampleCards[randomIndex] }; // copia
+    const newCard = getCardCopy(exampleCards[randomIndex].name);
     playerHand.push(newCard);
     log(`Você comprou a carta: ${newCard.name}`);
     render();
+  
+    canDrawThisTurn = false; // Bloqueia nova compra até o próximo turno
   });
+  
 
 document.querySelectorAll('.opponent-slot').forEach((slot, index) => {
   slot.addEventListener('click', () => {
@@ -206,6 +220,7 @@ function startCombatPhase() {
   
     render();
     log('--- Fase de Combate Encerrada ---');
+    canDrawThisTurn = true;
   }
 
   function opponentTurn() {

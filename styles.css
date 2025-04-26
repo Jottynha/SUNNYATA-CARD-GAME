@@ -18,11 +18,45 @@ body {
   cursor:pointer; position:relative;
 }
 #deck-count { font-size:24px; }
+@keyframes card-entry {
+  0% {
+    transform: translateY(-50px) scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes card-destroy {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+
+.card.destroy {
+  animation: card-destroy 0.3s ease-out forwards;
+}
+
 .card {
-  width:100px; height:140px; background:#fff;
-  border-radius:4px; box-shadow:0 4px 6px rgba(0,0,0,0.5);
-  transform:scale(0); transition:transform .3s ease;
-  cursor:pointer; flex-shrink:0;
+  width: 60px;
+  height: 84px;
+  transform: scale(1);
+  margin: 2px;
+  background-color: #333;
+  border: 2px solid #555;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.8rem;
+  animation: card-entry 0.5s ease-out; /* Aplica a animação */
 }
 .card.show { transform:scale(1); }
 .card img {

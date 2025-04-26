@@ -183,4 +183,28 @@ window.addEventListener('DOMContentLoaded', () => {
     deckEl.onclick = () => { if(!isPlayerTurn) startTurn(); };
     init();
   });
+
+  function addCardToField(slotId, cardText) {
+    const slot = document.getElementById(slotId);
+    const card = document.createElement('div');
+    card.classList.add('card');
+    card.textContent = cardText;
   
+    // Adiciona a carta ao slot
+    slot.appendChild(card);
+  }
+  
+  // Exemplo: Adiciona uma carta ao campo do jogador
+  addCardToField('player-slot-1', 'Carta Jogador');
+
+  function removeCardFromField(slotId) {
+    const slot = document.getElementById(slotId);
+    const card = slot.querySelector('.card');
+    if (card) {
+      card.classList.add('destroy');
+      card.addEventListener('animationend', () => card.remove());
+    }
+  }
+  
+  // Exemplo: Remove a carta do campo do jogador
+  removeCardFromField('player-slot-1');

@@ -1,3 +1,5 @@
+import { allCards } from './cards.js';
+
 // Variáveis globais
 let playerField = [null, null, null]; // Slots do jogador
 let opponentField = [null, null, null]; // Slots do oponente
@@ -8,10 +10,14 @@ let canDrawThisTurn = true;
 const exampleCards = [
   { name: 'Martin', atk: 5, def: 3, img: 'cartas/Martin.png' },
   { name: 'Dragão', atk: 3, def: 4, img: 'cartas/Dragao.jpeg' },
-  { name: 'Elfa', atk: 4, def: 2, img: 'cartas/Elfa.jpeg' }
+  { name: 'Elfa', atk: 4, def: 2, img: 'cartas/Elfa.jpeg' },
+  { name: 'Golem', atk: 2, def: 5, img: 'cartas/Golem.jpeg' },
+  { name: 'Fada', atk: 3, def: 3, img: 'cartas/Fada.jpeg' }
 ];
 let playerHand = []; // cartas na mão
 let selectedHandCard = null
+let deck = [];
+let selectedCards = []; // Cartas selecionadas pelo jogador para o deck
 
 
 // Função para inicializar o jogo
@@ -20,8 +26,85 @@ function init() {
   render();
 }
 
+function aplicarEfeitoCarta(card) {
+    const context = {
+      playerHP: jogador.hp,
+      enemiesOnField: campoInimigo.length,
+      turn: turnoAtual,
+      playerCardsOnField: campoJogador.length,
+      deckSize: deckJogador.length,
+      log: (msg) => adicionarLog(msg)
+    };
+  
+    if (card.effect) {
+      card.effect(card, context);
+    }
+  }
+  
+function initDeckManager() {
+    const availableCardsContainer = document.getElementById('available-cards');
+    availableCardsContainer.innerHTML = ''; // Limpar a área de cartas
+  
+    allCards.forEach(card => {
+      const cardElement = createCardElement(card);
+      cardElement.addEventListener('click', () => selectCard(card));
+      availableCardsContainer.appendChild(cardElement);
+    });
+  
+    document.getElementById('start-game-btn').addEventListener('click', startGame);
+  }
+ 
+  
+  // Função para selecionar a carta
+  function selectCard(card) {
+    if (selectedCards.includes(card)) {
+      // Deselect if already selected
+      selectedCards = selectedCards.filter(selectedCard => selectedCard !== card);
+    } else if (selectedCards.length < 5) {
+      // Select if there is room for more cards
+      selectedCards.push(card);
+    }
+  
+    updateSelectedCardsUI();
+  }
+  
+  // Função para atualizar a interface com as cartas selecionadas
+  function updateSelectedCardsUI() {
+    const availableCardsContainer = document.getElementById('available-cards');
+    const cardElements = availableCardsContainer.querySelectorAll('.card');
+  
+    cardElements.forEach(cardElement => {
+      const cardName = cardElement.querySelector('.card-text strong').textContent;
+      const card = allCards.find(card => card.name === cardName);
+  
+      if (selectedCards.includes(card)) {
+        cardElement.classList.add('selected');
+      } else {
+        cardElement.classList.remove('selected');
+      }
+    });
+  
+    // Atualizar o botão de "Iniciar Jogo"
+    const startGameBtn = document.getElementById('start-game-btn');
+    startGameBtn.disabled = selectedCards.length !== 5;
+  }
+  
+  // Função para iniciar o jogo
+  function startGame() {
+    if (selectedCards.length === 5) {
+      // Colocar as cartas selecionadas no deck do jogador
+      deck = [...selectedCards];  // As cartas selecionadas são o deck inicial
+      shuffleDeck(deck); // Embaralha o deck
+      log('Deck selecionado, iniciando o jogo...');
+      document.getElementById('deck-manager').style.display = 'none'; // Ocultar o gerenciador de deck
+      render(); // Renderiza o campo e a mão
+    } else {
+      alert('Você precisa selecionar exatamente 5 cartas!');
+    }
+  }
+
 function getCardCopy(cardName) {
-    const cardTemplate = exampleCards.find(c => c.name === cardName);
+    const cardTemplate = allCards.find(c => c.name === cardName);
     return { ...cardTemplate }; // sempre retorna uma nova instância
   }
   
@@ -136,6 +219,7 @@ document.querySelectorAll('.player-slot').forEach((slot, index) => {
     addCardToField(playerField, index, cardData);
   });
 });
+
 document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
     slot.addEventListener('click', () => {
       if (selectedHandCard && !playerField[index]) {
@@ -159,8 +243,8 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
       return;
     }
   
-    const randomIndex = Math.floor(Math.random() * exampleCards.length);
-    const newCard = getCardCopy(exampleCards[randomIndex].name);
+    const randomIndex = Math.floor(Math.random() * deck.length);
+    const newCard = getCardCopy(deck[randomIndex].name);
     playerHand.push(newCard);
     log(`Você comprou a carta: ${newCard.name}`);
     render();
@@ -294,6 +378,38 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
     log('Jogo reiniciado!');
     render();
   }
+  function shuffleDeck(deck) {
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]]; // Troca os elementos
+    }
+  }
+  
+  // Função para "comprar" uma carta do deck
+  function buyCard() {
+    const cartaComprada = deckJogador.pop();
+    aplicarEfeitoCarta(cartaComprada);
+    if (deck.length > 0) {
+      // Compra uma carta aleatória do deck
+      const card = deck.pop();
+      playerHand.push(card);
+      log(`Você comprou a carta: ${card.name}`);
+      updateHandUI(); // Atualiza a interface da mão
+    } else {
+      log('O deck está vazio!');
+    }
+  }
+  
+  // Função para atualizar a interface da mão do jogador
+  function updateHandUI() {
+    const handContainer = document.getElementById('hand-container');
+    handContainer.innerHTML = ''; // Limpar a área da mão
+  
+    playerHand.forEach(card => {
+      const cardElement = createCardElement(card);
+      handContainer.appendChild(cardElement);
+    });
+  }
   
 // Inicializa o jogo
-window.onload = () => init();
+window.onload = () => initDeckManager();

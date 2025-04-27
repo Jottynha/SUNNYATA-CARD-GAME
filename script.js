@@ -15,6 +15,8 @@ let opponentDeck = [];
 let grave = [];
 let opponentGrave = [];
 let selectedCards = []; // Cartas selecionadas pelo jogador para o deck
+let lastDrawnCard = null;
+
 
 function createOpponentDeck() {
   for (let i = 0; i < 20; i++) { // 20 cartas
@@ -101,11 +103,6 @@ function initDeckManager() {
     }
   }
 
-function getCardCopy(cardName) {
-    const cardTemplate = allCards.find(c => c.name === cardName);
-    return { ...cardTemplate }; // sempre retorna uma nova instância
-  }
-  
 
 
 // Função para renderizar o campo e a mão
@@ -121,6 +118,7 @@ function render() {
       slot.innerHTML = '';
       if (playerField[index]) {
         const card = createCardElement(playerField[index]);
+        card.classList.add('animar-entrada');
         slot.appendChild(card);
       }
     });
@@ -130,6 +128,7 @@ function render() {
       slot.innerHTML = '';
       if (opponentField[index]) {
         const card = createCardElement(opponentField[index]);
+        card.classList.add('animar-entrada');
         slot.appendChild(card);
       }
     });
@@ -138,10 +137,14 @@ function render() {
     handContainer.innerHTML = '';
     playerHand.forEach((card, i) => {
       const cardEl = createCardElement(card);
+      if (card === lastDrawnCard) {
+        cardEl.classList.add('ultima-carta-comprada');
+      }
       cardEl.addEventListener('click', () => {
         selectedHandCard = card;
         log(`Carta "${card.name}" selecionada. Escolha um slot no campo.`);
       });
+      
       handContainer.appendChild(cardEl);
     });
   }
@@ -245,6 +248,7 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
     if (deck.length > 0) {
       const card = deck.pop();
       playerHand.push(card);
+      lastDrawnCard = card;
       log(`Você comprou a carta: ${card.name}!`);
     } else {
       log('O deck está vazio!');
@@ -273,117 +277,124 @@ document.querySelectorAll('.opponent-slot').forEach((slot, index) => {
 });
 
 
-function startCombatPhase() {
-    for (let i = 0; i < playerField.length; i++) {
-      const card = playerField[i];
-      if (card) {
-        aplicarEfeitoCarta(card);
-      }
+async function startCombatPhase() {
+  for (let i = 0; i < playerField.length; i++) {
+    const card = playerField[i];
+    if (card) {
+      aplicarEfeitoCarta(card);
     }
-    for (let i = 0; i < 3; i++) {
-      const attacker = playerField[i];
-      const defender = opponentField[i];
-  
-      if (attacker && defender) {
-        log(`${attacker.name} ataca ${defender.name}`);
-        defender.def -= attacker.atk;
-  
-        if (defender.def <= 0) {
-          grave.push(defender);
-          log(`${defender.name} foi destruído!`);
-          opponentField[i] = null;
-        } else {
-          log(`${defender.name} sobreviveu com DEF ${defender.def}`);
-        }
-  
-      } else if (attacker && !defender) {
-        log(`${attacker.name} ataca diretamente!`);
-        opponentHP -= attacker.atk;
-        if (opponentHP <= 0) {
+  }
+
+  for (let i = 0; i < 3; i++) {
+    const attacker = playerField[i];
+    const defender = opponentField[i];
+
+    if (attacker && defender) {
+      log(`${attacker.name} ataca ${defender.name}`);
+
+      await animateAttack('player-field', i, 'opponent-field', i);
+
+      defender.def -= attacker.atk;
+
+      if (defender.def <= 0) {
+        grave.push(defender);
+        log(`${defender.name} foi destruído!`);
+        opponentField[i] = null;
+      } else {
+        log(`${defender.name} sobreviveu com DEF ${defender.def}`);
+      }
+
+    } else if (attacker && !defender) {
+      log(`${attacker.name} ataca diretamente!`);
+
+      await animateAttack('player-field', i);
+
+      opponentHP -= attacker.atk;
+      if (opponentHP <= 0) {
         opponentHP = 0;
         render();
         setTimeout(() => {
-            alert('Você venceu!');
-            restartGame();
+          alert('Você venceu!');
+          restartGame();
         }, 100);
         return;
-        }
       }
     }
-  
-    render();
-    log('--- Fase de Combate Encerrada ---');
-    canDrawThisTurn = true;
   }
 
-  function opponentTurn() {
+  render();
+  log('--- Fase de Combate Encerrada ---');
+  canDrawThisTurn = true;
+}
+
+
+  async function opponentTurn() {
     const emptyIndices = opponentField
       .map((c, i) => (c === null ? i : -1))
       .filter(i => i !== -1);
   
-    if (emptyIndices.length > 0 && opponentDeck.length > 0) {
-      const drawnCard = opponentDeck.pop(); // Compra do deck (última carta)
-  
-      // Tentar escolher o melhor campo para a carta
-      let bestSlot = -1;
-      let canDestroy = false;
-  
-      for (let slot of emptyIndices) {
-        const playerCard = playerField[slot];
-  
-        if (playerCard) {
-          if (drawnCard.atk >= playerCard.def) {
+      if (emptyIndices.length > 0 && opponentDeck.length > 0) {
+        const drawnCard = opponentDeck.pop();
+        let bestSlot = -1;
+        let canDestroy = false;
+    
+        for (let slot of emptyIndices) {
+          const playerCard = playerField[slot];
+          if (playerCard && drawnCard.atk >= playerCard.def) {
             bestSlot = slot;
             canDestroy = true;
-            break; // Achou um alvo que pode destruir
+            break;
+          }
+        }
+    
+        if (bestSlot === -1) {
+          bestSlot = emptyIndices[0];
+        }
+    
+        opponentField[bestSlot] = drawnCard;
+        log(`Oponente invocou ${drawnCard.name} no slot ${bestSlot + 1}`);
+      }
+    
+      for (let i = 0; i < 3; i++) {
+        const attacker = opponentField[i];
+        const defender = playerField[i];
+    
+        if (attacker && defender) {
+          log(`Oponente (${attacker.name}) ataca seu ${defender.name}`);
+    
+          await animateAttack('opponent-field', i, 'player-field', i);
+    
+          defender.def -= attacker.atk;
+    
+          if (defender.def <= 0) {
+            grave.push(defender);
+            log(`${defender.name} foi destruído!`);
+            playerField[i] = null;
+          } else {
+            log(`${defender.name} sobreviveu com DEF ${defender.def}`);
+          }
+    
+        } else if (attacker && !defender) {
+          log(`${attacker.name} ataca você diretamente!`);
+    
+          await animateAttack('opponent-field', i);
+    
+          playerHP -= attacker.atk;
+          if (playerHP <= 0) {
+            playerHP = 0;
+            render();
+            setTimeout(() => {
+              alert('Você perdeu!');
+              restartGame();
+            }, 100);
+            return;
           }
         }
       }
-  
-      // Se não encontrou alvo bom, coloca no primeiro slot vazio
-      if (bestSlot === -1) {
-        bestSlot = emptyIndices[0];
-      }
-  
-      opponentField[bestSlot] = drawnCard;
-      log(`Oponente invocou ${drawnCard.name} no slot ${bestSlot + 1}`);
+    
+      render();
+      log('--- Turno do Oponente Encerrado ---');
     }
-  
-    // Fase de ataque do oponente
-    for (let i = 0; i < 3; i++) {
-      const attacker = opponentField[i];
-      const defender = playerField[i];
-  
-      if (attacker && defender) {
-        log(`Oponente (${attacker.name}) ataca seu ${defender.name}`);
-        defender.def -= attacker.atk;
-  
-        if (defender.def <= 0) {
-          grave.push(defender);
-          log(`${defender.name} foi destruído!`);
-          playerField[i] = null;
-        } else {
-          log(`${defender.name} sobreviveu com DEF ${defender.def}`);
-        }
-  
-      } else if (attacker && !defender) {
-        log(`${attacker.name} ataca você diretamente!`);
-        playerHP -= attacker.atk;
-        if (playerHP <= 0) {
-          playerHP = 0;
-          render();
-          setTimeout(() => {
-            alert('Você perdeu!');
-            restartGame();
-          }, 100);
-          return;
-        }
-      }
-    }
-  
-    render();
-    log('--- Turno do Oponente Encerrado ---');
-  }
   
   
 document.getElementById('end-prep-btn').addEventListener('click', () => {
@@ -412,19 +423,38 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       [deck[i], deck[j]] = [deck[j], deck[i]]; // Troca os elementos
     }
   }
+
+  async function animateAttack(attackerFieldId, attackerIndex, defenderFieldId = null, defenderIndex = null) {
+    render(); // Atualiza a tela para garantir que os elementos existem
   
+    const attackerSlot = document.querySelectorAll(`#${attackerFieldId} .slot`)[attackerIndex];
+    const attackerCard = attackerSlot.querySelector('.card');
   
-  // Função para atualizar a interface da mão do jogador
-  function updateHandUI() {
-    const handContainer = document.getElementById('hand-container');
-    handContainer.innerHTML = ''; // Limpar a área da mão
+    if (attackerCard) {
+      attackerCard.classList.add('attack');
+    }
   
-    playerHand.forEach(card => {
-      const cardElement = createCardElement(card);
-      handContainer.appendChild(cardElement);
-    });
+    if (defenderFieldId && defenderIndex !== null) {
+      const defenderSlot = document.querySelectorAll(`#${defenderFieldId} .slot`)[defenderIndex];
+      const defenderCard = defenderSlot.querySelector('.card');
+      if (defenderCard) {
+        defenderCard.classList.add('hit');
+      }
+    }
+  
+    // Espera 400ms (tempo da animação)
+    await new Promise(resolve => setTimeout(resolve, 400));
+  
+    if (attackerCard) attackerCard.classList.remove('attack');
+    if (defenderFieldId && defenderIndex !== null) {
+      const defenderSlot = document.querySelectorAll(`#${defenderFieldId} .slot`)[defenderIndex];
+      const defenderCard = defenderSlot.querySelector('.card');
+      if (defenderCard) defenderCard.classList.remove('hit');
+    }
   }
-  const modal = document.createElement('div');
+  
+  
+const modal = document.createElement('div');
 modal.id = 'modal';
 document.body.appendChild(modal);
 

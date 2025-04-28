@@ -278,6 +278,7 @@ document.querySelectorAll('.opponent-slot').forEach((slot, index) => {
 
 
 async function startCombatPhase() {
+  ativarEfeitosDasCartas('combate');
   for (let i = 0; i < playerField.length; i++) {
     const card = playerField[i];
     if (card) {
@@ -286,6 +287,7 @@ async function startCombatPhase() {
   }
 
   for (let i = 0; i < 3; i++) {
+    await new Promise(resolve => setTimeout(resolve, 600));
     const attacker = playerField[i];
     const defender = opponentField[i];
 
@@ -329,6 +331,7 @@ async function startCombatPhase() {
 
 
   async function opponentTurn() {
+    await new Promise(resolve => setTimeout(resolve, 800));
     const emptyIndices = opponentField
       .map((c, i) => (c === null ? i : -1))
       .filter(i => i !== -1);
@@ -358,7 +361,7 @@ async function startCombatPhase() {
       for (let i = 0; i < 3; i++) {
         const attacker = opponentField[i];
         const defender = playerField[i];
-    
+        await new Promise(resolve => setTimeout(resolve, 600));
         if (attacker && defender) {
           log(`Oponente (${attacker.name}) ataca seu ${defender.name}`);
     
@@ -398,6 +401,7 @@ async function startCombatPhase() {
   
   
 document.getElementById('end-prep-btn').addEventListener('click', () => {
+    ativarEfeitosDasCartas('preparacao');
     log('--- Fase de Combate Iniciada ---');
     startCombatPhase();
   
@@ -442,14 +446,38 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       }
     }
   
-    // Espera 400ms (tempo da animação)
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await new Promise(resolve => setTimeout(resolve, 700));
   
     if (attackerCard) attackerCard.classList.remove('attack');
     if (defenderFieldId && defenderIndex !== null) {
       const defenderSlot = document.querySelectorAll(`#${defenderFieldId} .slot`)[defenderIndex];
       const defenderCard = defenderSlot.querySelector('.card');
       if (defenderCard) defenderCard.classList.remove('hit');
+    }
+  }
+  
+  function ativarEfeitosDasCartas(faseAtual) {
+    const contexto = {
+      fase: faseAtual,
+      enemiesOnField: opponentField.filter(carta => carta !== null).length,
+      playerCardsOnField: playerField.filter(carta => carta !== null).length,
+      deckSize: deck.length,
+      turn: turn,
+      log: (message) => log(message)
+    };
+  
+    // Ativar efeitos das cartas do jogador
+    for (const carta of playerField) {
+      if (carta && typeof carta.effect === 'function') {
+        carta.effect(carta, contexto);
+      }
+    }
+  
+    // (Opcional) Ativar efeitos das cartas do oponente também:
+    for (const carta of opponentField) {
+      if (carta && typeof carta.effect === 'function') {
+        carta.effect(carta, contexto);
+      }
     }
   }
   

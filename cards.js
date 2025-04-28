@@ -13,7 +13,7 @@ export const allCards = [
       def: 2,
       img: 'cartas/Guerreiro.png',
       effect: (self, context) => {
-        if (context.fase === 'preparacao') {
+        if (context.fase === 'combate') {
           context.log(`${self.name} se fortalece! Ganha +1 ATK!`);
           self.atk += 1;
         }

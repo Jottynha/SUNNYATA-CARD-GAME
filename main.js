@@ -16,6 +16,8 @@ let grave = [];
 let opponentGrave = [];
 let selectedCards = []; // Cartas selecionadas pelo jogador para o deck
 let lastDrawnCard = null;
+let selectedDeck = {};
+const MAX_DECK_SIZE = 20;
 
 
 function createOpponentDeck() {
@@ -25,21 +27,7 @@ function createOpponentDeck() {
   }
 }
 
-function aplicarEfeitoCarta(card) {
-    const context = {
-      playerHP: playerHP,
-      enemiesOnField: opponentField.length,
-      turn: turn,
-      playerCardsOnField: playerField.length,
-      deckSize: deck.length,
-      compra: canDrawThisTurn,
-      log: (msg) => log(msg)
-    };
-  
-    if (card.effect) {
-      card.effect(card, context);
-    }
-  }
+
   
 function initDeckManager() {
     createOpponentDeck();
@@ -55,54 +43,69 @@ function initDeckManager() {
     document.getElementById('start-game-btn').addEventListener('click', startGame);
   }
  
+  function getSelectedCardsArray() {
+    const cardsArray = [];
+    for (const [cardName, quantity] of Object.entries(selectedDeck)) {
+      const card = allCards.find(c => c.name === cardName);
+      for (let i = 0; i < quantity; i++) {
+        cardsArray.push({...card}); // Clonar o objeto carta
+      }
+    }
+    return cardsArray;
+  }
+
+  function updateSelectedDeckDisplay() {
+    const selectedCards = getSelectedCardsArray();
+    const deckContainer = document.getElementById('selected-deck');
+    deckContainer.innerHTML = '';
+  
+    Object.entries(selectedDeck).forEach(([cardName, quantity]) => {
+      const cardDisplay = document.createElement('div');
+      cardDisplay.className = 'selected-card';
+      cardDisplay.textContent = `${cardName} x${quantity}`;
+      deckContainer.appendChild(cardDisplay);
+    });
+  
+    const totalCount = Object.values(selectedDeck).reduce((a, b) => a + b, 0);
+    document.getElementById('deck-count').textContent = `Cartas no deck: ${totalCount}/20`;
+    const startGameBtn = document.getElementById('start-game-btn');
+    startGameBtn.disabled = selectedCards.length !== MAX_DECK_SIZE;
+  }
+  
   
   // Função para selecionar a carta
   function selectCard(card) {
-    if (selectedCards.includes(card)) {
-      // Deselect if already selected
-      selectedCards = selectedCards.filter(selectedCard => selectedCard !== card);
-    } else if (selectedCards.length < 5) {
-      // Select if there is room for more cards
-      selectedCards.push(card);
+    const currentCount = selectedDeck[card.name] || 0;
+    const totalCards = Object.values(selectedDeck).reduce((sum, count) => sum + count, 0);
+  
+    if (totalCards >= MAX_DECK_SIZE) {
+      alert('Seu deck já possui 20 cartas!');
+      return;
     }
   
-    updateSelectedCardsUI();
+    selectedDeck[card.name] = currentCount + 1;
+    updateSelectedDeckDisplay();
   }
   
-  // Função para atualizar a interface com as cartas selecionadas
-  function updateSelectedCardsUI() {
-    const availableCardsContainer = document.getElementById('available-cards');
-    const cardElements = availableCardsContainer.querySelectorAll('.card');
-  
-    cardElements.forEach(cardElement => {
-      const cardName = cardElement.querySelector('.card-text strong').textContent;
-      const card = allCards.find(card => card.name === cardName);
-  
-      if (selectedCards.includes(card)) {
-        cardElement.classList.add('selected');
-      } else {
-        cardElement.classList.remove('selected');
-      }
-    });
-  
-    // Atualizar o botão de "Iniciar Jogo"
-    const startGameBtn = document.getElementById('start-game-btn');
-    startGameBtn.disabled = selectedCards.length !== 5;
-  }
   
   // Função para iniciar o jogo
   function startGame() {
-    if (selectedCards.length === 5) {
-      // Colocar as cartas selecionadas no deck do jogador
-      deck = [...selectedCards];  // As cartas selecionadas são o deck inicial
-      shuffleDeck(deck); // Embaralha o deck
-      log('Deck selecionado, iniciando o jogo...');
-      document.getElementById('deck-manager').style.display = 'none'; // Ocultar o gerenciador de deck
-      render(); // Renderiza o campo e a mão
+    const selectedCards = getSelectedCardsArray();
+
+    if (selectedCards.length === MAX_DECK_SIZE) {
+      deck = [...selectedCards];
+      shuffleDeck(deck);
+      log('Deck de 20 cartas selecionado. Iniciando o jogo...');
+      document.getElementById('deck-manager').style.display = 'none';
+      document.getElementById('selected-deck').style.display = 'none';
+      document.getElementById('deck-count').style.display = 'none';
+      
+      render();
     } else {
-      alert('Você precisa selecionar exatamente 5 cartas!');
+      alert(`Você precisa selecionar exatamente ${MAX_DECK_SIZE} cartas!`);
     }
   }
+  
 
 
 
@@ -237,6 +240,7 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
         if (i !== -1) playerHand.splice(i, 1); // remove da mão
         selectedHandCard = null;
         render();
+        ativarEfeitosDasCartas('preparacao')
       } else if (playerField[index]) {
         log('Este slot já está ocupado!');
       } else {
@@ -287,9 +291,6 @@ async function startCombatPhase() {
   ativarEfeitosDasCartas('combate');
   for (let i = 0; i < playerField.length; i++) {
     const card = playerField[i];
-    if (card) {
-      aplicarEfeitoCarta(card);
-    }
   }
 
   for (let i = 0; i < 3; i++) {
@@ -407,7 +408,6 @@ async function startCombatPhase() {
   
   
 document.getElementById('end-prep-btn').addEventListener('click', () => {
-    ativarEfeitosDasCartas('preparacao');
     log('--- Fase de Combate Iniciada ---');
     startCombatPhase();
   
@@ -469,7 +469,10 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       playerCardsOnField: playerField.filter(carta => carta !== null).length,
       deckSize: deck.length,
       turn: turn,
-      log: (message) => log(message)
+      compra: canDrawThisTurn,
+      log: (message) => log(message),
+      permitirCompra: () => { canDrawThisTurn = true; },
+      modifyPlayerHP: (delta) => { playerHP += delta; }
     };
   
     // Ativar efeitos das cartas do jogador

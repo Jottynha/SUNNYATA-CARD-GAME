@@ -226,4 +226,63 @@ h1 { margin-top: 20px; }
     animation: hitEffect 0.4s ease;
   }
   
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+  
+  .modal-content {
+    background-color: #111;
+    width: 50%;
+    max-width: 400px; /* Reduz ainda mais a largura */
+    margin: auto;
+    padding: 15px;
+    border: 2px solid #888;
+    border-radius: 10px;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    text-align: center;
+  }
+  
+  /* Reduz a imagem da carta */
+  .modal-card-img {
+    width: 100%;
+    max-width: 180px; /* Tamanho reduzido */
+    height: auto;
+    display: block;
+    margin: 0 auto 10px;
+    border-radius: 5px;
+  }
+  
+  /* Estilo reduzido do texto */
+  .modal-content .card-text {
+    font-size: 0.85rem;
+    line-height: 1.3;
+    margin-top: 10px;
+  }
+  
+  
+  .close-button {
+    color: #aaa;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  
+  .close-button:hover {
+    color: red;
+  }
   

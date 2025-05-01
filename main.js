@@ -173,6 +173,11 @@ function createCardElement(card) {
     cardElement.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', JSON.stringify(card));
     });
+
+    cardElement.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showCardDetailsModal(card); // Abre o modal com os detalhes da carta
+    });
   
     return cardElement;
   }
@@ -480,6 +485,22 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       }
     }
   }
+  function showCardDetailsModal(card) {
+    const modal = document.getElementById('card-details-modal');
+    const modalContent = document.getElementById('card-details-content');
+  
+    modalContent.innerHTML = `
+      <h2>${card.name}</h2>
+      <img src="${card.img}" alt="${card.name}" class="modal-card-img">
+      <p><strong>ATK:</strong> ${card.atk}</p>
+      <p><strong>DEF:</strong> ${card.def}</p>
+      <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
+      <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
+    `;
+  
+    modal.style.display = 'block';
+  }
+  
   
   
 const modal = document.createElement('div');

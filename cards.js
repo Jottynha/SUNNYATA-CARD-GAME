@@ -1,71 +1,53 @@
 // cards.js
 
 export const allCards = [
-    { name: 'Martin', atk: 5, def: 3, img: 'cartas/Martin.png' },
-    { name: 'Dragão', atk: 3, def: 4, img: 'cartas/Dragao.jpeg' },
-    { name: 'Elfa', atk: 4, def: 2, img: 'cartas/Elfa.jpeg' },
-    { name: 'Golem', atk: 2, def: 5, img: 'cartas/Golem.jpeg' },
-    { name: 'Fada', atk: 3, def: 3, img: 'cartas/Fada.jpeg' },
-    {
-        
-      name: 'Guerreiro Furioso',
-      atk: 3,
-      def: 2,
-      img: 'cartas/Guerreiro.png',
-      effect: (self, context) => {
-        if (context.fase === 'combate') {
-          context.log(`${self.name} se fortalece! Ganha +1 ATK!`);
-          self.atk += 1;
-        }
+    { name: 'Martin', atk: 2, def: 3, img: 'cartas/Martin.png', description: 'Um professor com muita energia.' ,specialEffect: 'Se fortalece em +2 de Defesa.', effect: (self, context) => {
+      if (context.fase === 'combate') {
+        context.log(`${self.name} se fortalece! Ganha +2 DEF!`);
+        self.def += 2;
       }
-    },
-    {
-      name: 'Defensor Sagrado',
-      atk: 2,
-      def: 5,
-      img: 'cartas/Defensor.png',
-      effect: (card, context) => {
-        if (context.enemiesOnField === 0) {
-          card.def += 1;
-          context.log(`${card.name} se fortalece! +1 DEF`);
-        }
+    }},
+    { name: 'Franscisco', atk: 4, def: 2, img: 'cartas/Francisco.png', description: 'Um ex-militar com muita vontade de lutar.' ,specialEffect: 'Se fortalece em +1 de Ataque.', effect: (self, context) => {
+      if (context.fase === 'combate') {
+        context.log(`${self.name} se fortalece! Ganha +1 ATK!`);
+        self.atk += 1;
       }
-    },
-    {
-      name: 'Assassino Sombrio',
-      atk: 4,
-      def: 1,
-      img: 'cartas/Assassino.png',
-      effect: (card, context) => {
-        if (context.turn % 2 === 0) {
-          card.atk += 1;
-          context.log(`${card.name} ataca nas sombras! +1 ATK`);
-        }
+    }},
+    { name: 'Hilda', atk: 5, def: 1, img: 'cartas/Hilda(2).png', description: 'Uma jovem com poderes insanos.' ,specialEffect: 'Cura o jogador em +1 de HP.', effect: (self, context) => {
+      if (context.fase === 'preparacao') {
+        context.log(`Jogador se cura em +1 de HP`);
+        player.HP += 1;
       }
-    },
-    {
-      name: 'Cavaleiro da Luz',
-      atk: 2,
-      def: 3,
-      img: 'cartas/Cavaleiro.png',
-      effect: (card, context) => {
-        if (context.playerCardsOnField >= 2) {
-          card.def += 2;
-          context.log(`${card.name} brilha com aliados! +2 DEF`);
-        }
+    }},
+    { name: 'Petrichor', atk: 2, def: 2, img: 'cartas/Petrichor.png', description: 'Um xamã com poderes ancestrais.' ,specialEffect: 'Compra mais uma carta.', effect: (self, context) => {
+      if (context.fase === 'preparacao') {
+        context.log(`Jogador pode comprar mais uma carta`);
+        compra = true;
       }
-    },
-    {
-      name: 'Arqueiro Veloz',
-      atk: 3,
-      def: 2,
-      img: 'cartas/Arqueiro.png',
-      effect: (card, context) => {
-        if (context.deckSize > 10) {
-          card.atk += 1;
-          context.log(`${card.name} dispara com vantagem numérica! +1 ATK`);
-        }
+    }},
+    { name: 'Diego', atk: 2, def: 2, img: 'cartas/Diego.png', description: 'Um jovem com poderes equilibrados.' ,specialEffect: 'Em turnos pares, ganha +2 de ATK.', effect: (self, context) => {
+      if (context.turn % 2 === 0) {
+        card.atk += 2;
+        context.log(`${card.name} ataca nas sombras! +2 ATK`);
       }
-    }
+    }},
+    { name: 'Helios', atk: 4, def: 1, img: 'cartas/Helios(2).png', description: 'Um Citurin com poderes de velocidade.' ,specialEffect: 'Num campo vazio, recebe +1 de DEF.', effect: (self, context) => {
+      if (context.enemiesOnField === 0) {
+        card.def += 1;
+        context.log(`${card.name} se fortalece! +1 DEF`);
+      }
+    }},
+    { name: 'Heimdall', atk: 4, def: 1, img: 'cartas/Heimdall.png', description: 'Um ex-mercenário com poderes de tempo.' ,specialEffect: 'Num campo cheio, recebe +2 de DEF.', effect: (self, context) => {
+      if (context.playerCardsOnField >= 2) {
+        card.def += 2;
+        context.log(`${card.name} brilha com aliados! +2 DEF`);
+      }
+    }},
+    { name: 'Sasuke', atk: 4, def: 1, img: 'cartas/Sasuke.png', description: 'Um ninja com poderes de teleporte.' ,specialEffect: 'Enquanto o deck tiver mais de 10 cartas, recebe +2 de ATK.', effect: (self, context) => {
+      if (context.deckSize > 10) {
+        card.atk += 2;
+        context.log(`${card.name} dispara com vantagem numérica! +2 ATK`);
+      }
+    }}
   ];
   

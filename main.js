@@ -32,6 +32,7 @@ function aplicarEfeitoCarta(card) {
       turn: turn,
       playerCardsOnField: playerField.length,
       deckSize: deck.length,
+      compra: canDrawThisTurn,
       log: (msg) => log(msg)
     };
   

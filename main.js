@@ -17,6 +17,7 @@ let grave = [];
 let opponentGrave = [];
 let lastDrawnCard = null;
 let selectedDeck = {};
+let animacaoEntradaCampo = false;
 const MAX_DECK_SIZE = 20;
 
 
@@ -127,7 +128,6 @@ function render() {
       slot.innerHTML = '';
       if (playerField[index]) {
         const card = createCardElement(playerField[index]);
-        card.classList.add('animar-entrada');
         slot.appendChild(card);
       }
     });
@@ -137,7 +137,6 @@ function render() {
       slot.innerHTML = '';
       if (opponentField[index]) {
         const card = createCardElement(opponentField[index]);
-        card.classList.add('animar-entrada');
         slot.appendChild(card);
       }
     });
@@ -178,6 +177,13 @@ function createCardElement(card) {
     cardElement.appendChild(text);
   
     cardElement.draggable = true;
+
+    if (animacaoEntradaCampo) {
+      cardElement.classList.add('entrada-carta');
+      setTimeout(() => {
+        cardElement.classList.remove('entrada-carta');
+      }, 800);
+    }
   
     cardElement.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', JSON.stringify(card));
@@ -280,11 +286,9 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
       ativarEfeitosDasCartas('preparacao', playerField[index]);
       playerField[index].efeitoAtivadoPreparacao = true;
     }
-
-    
-    
-
+    animacaoEntradaCampo = true; 
     render();
+    animacaoEntradaCampo = false;
   });
 });
 
@@ -329,9 +333,6 @@ document.querySelectorAll('.opponent-slot').forEach((slot, index) => {
 
 async function startCombatPhase() {
   ativarEfeitosDasCartas('combate');
-  for (let i = 0; i < playerField.length; i++) {
-    const card = playerField[i];
-  }
 
   for (let i = 0; i < 3; i++) {
     await new Promise(resolve => setTimeout(resolve, 600));
@@ -346,6 +347,14 @@ async function startCombatPhase() {
       defender.def -= attacker.atk;
 
       if (defender.def <= 0) {
+        const defenderSlot = document.querySelectorAll(`#opponent-field .slot`)[i];
+        const defenderCard = defenderSlot.querySelector('.card');
+        if (defenderCard) {
+          defenderCard.classList.add('destroyed');
+
+          // Espera a animação terminar antes de remover a carta
+          await new Promise(resolve => setTimeout(resolve, 600));
+        }
         grave.push(defender);
         log(`${defender.name} foi destruído!`);
         opponentField[i] = null;
@@ -417,6 +426,12 @@ async function startCombatPhase() {
           defender.def -= attacker.atk;
     
           if (defender.def <= 0) {
+            const defenderSlot = document.querySelectorAll(`#player-field .slot`)[i];
+            const defenderCard = defenderSlot.querySelector('.card');
+            if (defenderCard) {
+              defenderCard.classList.add('destroyed');
+              await new Promise(resolve => setTimeout(resolve, 600));
+            }
             grave.push(defender);
             log(`${defender.name} foi destruído!`);
             playerField[i] = null;

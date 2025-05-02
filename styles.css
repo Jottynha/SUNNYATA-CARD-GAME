@@ -311,3 +311,47 @@ h1 { margin-top: 20px; }
     color: red;
   }
   
+  @keyframes entradaDoCampo {
+    0% {
+      transform: scale(0.5) rotate(-10deg);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.1) rotate(2deg);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1) rotate(0deg);
+    }
+  }
+  
+  .entrada-carta {
+    animation: entradaDoCampo 0.8s ease-out;
+  }
+
+  .card.destroyed {
+  animation: destroyAnim 1.2s ease forwards;
+}
+
+@keyframes destroyAnim {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  30% {
+    filter: brightness(2);
+  }
+  60% {
+    transform: scale(1.1);
+    filter: brightness(0.5);
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+    filter: brightness(0);
+  }
+}
+
+  }
+  

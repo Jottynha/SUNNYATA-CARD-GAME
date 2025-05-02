@@ -7,6 +7,7 @@ let selectedCard = null; // Carta selecionada para combate
 let playerHP = 10;
 let opponentHP = 10;
 let canDrawThisTurn = true;
+let invocacaoNormalFeita = false; // controla a invocação normal no turno
 let turn = 0;
 let playerHand = []; // cartas na mão
 let selectedHandCard = null
@@ -14,7 +15,6 @@ let deck = [];
 let opponentDeck = [];
 let grave = [];
 let opponentGrave = [];
-let selectedCards = []; // Cartas selecionadas pelo jogador para o deck
 let lastDrawnCard = null;
 let selectedDeck = {};
 const MAX_DECK_SIZE = 20;
@@ -99,7 +99,12 @@ function initDeckManager() {
       document.getElementById('deck-manager').style.display = 'none';
       document.getElementById('selected-deck').style.display = 'none';
       document.getElementById('deck-count').style.display = 'none';
-      
+      for (let i = 0; i < 5; i++) {
+        const card = deck.pop();
+        playerHand.push(card);
+        lastDrawnCard = card;
+        log(`Você comprou a carta: ${card.name}!`);
+      }
       render();
     } else {
       alert(`Você precisa selecionar exatamente ${MAX_DECK_SIZE} cartas!`);
@@ -232,22 +237,57 @@ document.querySelectorAll('.player-slot').forEach((slot, index) => {
   });
 });
 
+
 document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
-    slot.addEventListener('click', () => {
-      if (selectedHandCard && !playerField[index]) {
-        playerField[index] = selectedHandCard;
-        const i = playerHand.indexOf(selectedHandCard);
-        if (i !== -1) playerHand.splice(i, 1); // remove da mão
-        selectedHandCard = null;
-        render();
-        ativarEfeitosDasCartas('preparacao')
-      } else if (playerField[index]) {
-        log('Este slot já está ocupado!');
-      } else {
-        log('Nenhuma carta selecionada!');
-      }
-    });
+  slot.addEventListener('click', () => {
+    if (!selectedHandCard) {
+      log('Nenhuma carta selecionada!');
+      return;
+    }
+
+    if (playerField[index]) {
+      log('Este slot já está ocupado!');
+      return;
+    }
+
+    const isEspecial = selectedHandCard.tipoInvocacao === 'especial';
+
+    // Se for invocação normal, checar se já foi feita
+    if (!isEspecial && invocacaoNormalFeita) {
+      log('Você já fez uma invocação normal neste turno!');
+      return;
+    }
+    if (selectedHandCard.tipoInvocacao === 'especial' && selectedHandCard.podeSerInvocada && !selectedHandCard.podeSerInvocada(playerField)) {
+      log('Condição para invocação especial não foi satisfeita!');
+      return;
+    }
+    if (isEspecial) {
+      log('Você realizou uma invocação especial!');
+    }
+    // Executa a invocação
+    playerField[index] = selectedHandCard;
+    const i = playerHand.indexOf(selectedHandCard);
+    if (i !== -1) playerHand.splice(i, 1); // remove da mão
+    selectedHandCard = null;
+
+    // Marca que a invocação normal foi feita
+    if (!isEspecial) {
+      invocacaoNormalFeita = true;
+    }
+
+    // Ativar efeito de preparação uma única vez por carta
+    if (!playerField[index].efeitoAtivadoPreparacao) {
+      ativarEfeitosDasCartas('preparacao', playerField[index]);
+      playerField[index].efeitoAtivadoPreparacao = true;
+    }
+
+    
+    
+
+    render();
   });
+});
+
   
   // Comprar carta aleatória
   document.getElementById('draw-btn').addEventListener('click', () => {
@@ -404,6 +444,7 @@ async function startCombatPhase() {
     
       render();
       log('--- Turno do Oponente Encerrado ---');
+      invocacaoNormalFeita = false; 
     }
   
   
@@ -493,9 +534,24 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
     const modal = document.getElementById('card-details-modal');
     const modalContent = document.getElementById('card-details-content');
   
+    let tipoInvocacao = '';
+    let invocacaoClass = '';
+  
+    if (card.tipoInvocacao === 'ambos') {
+      tipoInvocacao = 'Normal e Especial';
+      invocacaoClass = 'invocacao-especial';
+    } else if (card.tipoInvocacao === 'especial') {
+      tipoInvocacao = 'Especial';
+      invocacaoClass = 'invocacao-especial';
+    } else {
+      tipoInvocacao = 'Normal';
+      invocacaoClass = ''; // sem classe especial
+    }
+  
     modalContent.innerHTML = `
       <h2>${card.name}</h2>
       <img src="${card.img}" alt="${card.name}" class="modal-card-img">
+      <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
       <p><strong>ATK:</strong> ${card.atk}</p>
       <p><strong>DEF:</strong> ${card.def}</p>
       <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
@@ -504,6 +560,8 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
   
     modal.style.display = 'block';
   }
+  
+  
   
   
   

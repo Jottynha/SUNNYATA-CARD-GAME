@@ -31,18 +31,48 @@ function createOpponentDeck() {
 
   
 function initDeckManager() {
-    createOpponentDeck();
-    const availableCardsContainer = document.getElementById('available-cards');
-    availableCardsContainer.innerHTML = ''; // Limpar a área de cartas
-  
-    allCards.forEach(card => {
+  createOpponentDeck();
+  const availableCardsContainer = document.getElementById('available-cards');
+  availableCardsContainer.innerHTML = ''; // Limpar a área de cartas
+
+  // Organizar as cartas por expansão
+  const expansions = {};
+
+  allCards.forEach(card => {
+    const expansion = card.expansao || 'Sem Expansão'; // Caso uma carta não tenha expansão definida, será atribuída "Sem Expansão"
+    
+    if (!expansions[expansion]) {
+      expansions[expansion] = [];
+    }
+    
+    expansions[expansion].push(card);
+  });
+
+  // Criar um contêiner para cada expansão
+  Object.keys(expansions).forEach(expansion => {
+    const expansionContainer = document.createElement('div');
+    expansionContainer.classList.add('expansion-container');
+    const expansionTitle = document.createElement('h3');
+    expansionTitle.textContent = expansion;
+    expansionContainer.appendChild(expansionTitle);
+
+    // Criar os elementos das cartas dentro da expansão
+    const cardsContainer = document.createElement('div');
+    cardsContainer.classList.add('cards-row');
+    expansions[expansion].forEach(card => {
       const cardElement = createCardElement(card);
+      cardElement.classList.add('card');
       cardElement.addEventListener('click', () => selectCard(card));
-      availableCardsContainer.appendChild(cardElement);
+      cardsContainer.appendChild(cardElement);
     });
-  
-    document.getElementById('start-game-btn').addEventListener('click', startGame);
-  }
+
+    expansionContainer.appendChild(cardsContainer);
+    availableCardsContainer.appendChild(expansionContainer);
+  });
+
+  document.getElementById('start-game-btn').addEventListener('click', startGame);
+}
+
  
   function getSelectedCardsArray() {
     const cardsArray = [];
@@ -386,81 +416,89 @@ async function startCombatPhase() {
 }
 
 
-  async function opponentTurn() {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const emptyIndices = opponentField
-      .map((c, i) => (c === null ? i : -1))
-      .filter(i => i !== -1);
-  
-      if (emptyIndices.length > 0 && opponentDeck.length > 0) {
-        const drawnCard = opponentDeck.pop();
-        let bestSlot = -1;
-        let canDestroy = false;
-    
-        for (let slot of emptyIndices) {
-          const playerCard = playerField[slot];
-          if (playerCard && drawnCard.atk >= playerCard.def) {
-            bestSlot = slot;
-            canDestroy = true;
-            break;
-          }
-        }
-    
-        if (bestSlot === -1) {
-          bestSlot = emptyIndices[0];
-        }
-    
-        opponentField[bestSlot] = drawnCard;
-        log(`Oponente invocou ${drawnCard.name} no slot ${bestSlot + 1}`);
+async function opponentTurn() {
+  await new Promise(resolve => setTimeout(resolve, 800));
+
+  const emptyIndices = opponentField
+    .map((c, i) => (c === null ? i : -1))
+    .filter(i => i !== -1);
+
+  if (emptyIndices.length > 0 && opponentDeck.length > 0) {
+    const drawnCard = opponentDeck.pop();
+    let bestSlot = -1;
+    let canDestroy = false;
+
+    for (let slot of emptyIndices) {
+      const playerCard = playerField[slot];
+      if (playerCard && drawnCard.atk >= playerCard.def) {
+        bestSlot = slot;
+        canDestroy = true;
+        break;
       }
-    
-      for (let i = 0; i < 3; i++) {
-        const attacker = opponentField[i];
-        const defender = playerField[i];
-        await new Promise(resolve => setTimeout(resolve, 600));
-        if (attacker && defender) {
-          log(`Oponente (${attacker.name}) ataca seu ${defender.name}`);
-    
-          await animateAttack('opponent-field', i, 'player-field', i);
-    
-          defender.def -= attacker.atk;
-    
-          if (defender.def <= 0) {
-            const defenderSlot = document.querySelectorAll(`#player-field .slot`)[i];
-            const defenderCard = defenderSlot.querySelector('.card');
-            if (defenderCard) {
-              defenderCard.classList.add('destroyed');
-              await new Promise(resolve => setTimeout(resolve, 600));
-            }
-            grave.push(defender);
-            log(`${defender.name} foi destruído!`);
-            playerField[i] = null;
-          } else {
-            log(`${defender.name} sobreviveu com DEF ${defender.def}`);
-          }
-    
-        } else if (attacker && !defender) {
-          log(`${attacker.name} ataca você diretamente!`);
-    
-          await animateAttack('opponent-field', i);
-    
-          playerHP -= attacker.atk;
-          if (playerHP <= 0) {
-            playerHP = 0;
-            render();
-            setTimeout(() => {
-              alert('Você perdeu!');
-              restartGame();
-            }, 100);
-            return;
-          }
-        }
-      }
-    
-      render();
-      log('--- Turno do Oponente Encerrado ---');
-      invocacaoNormalFeita = false; 
     }
+
+    if (bestSlot === -1) {
+      bestSlot = emptyIndices[0];
+    }
+
+    opponentField[bestSlot] = drawnCard;
+    log(`Oponente invocou ${drawnCard.name} no slot ${bestSlot + 1}`);
+    render(); // Atualiza o campo após invocação
+    await new Promise(resolve => setTimeout(resolve, 800)); // Delay após invocação
+  }
+
+  for (let i = 0; i < 3; i++) {
+    const attacker = opponentField[i];
+    const defender = playerField[i];
+
+    if (attacker && defender) {
+      log(`Oponente (${attacker.name}) ataca seu ${defender.name}`);
+      await new Promise(resolve => setTimeout(resolve, 600)); // Delay antes do ataque
+
+      await animateAttack('opponent-field', i, 'player-field', i);
+
+      defender.def -= attacker.atk;
+
+      if (defender.def <= 0) {
+        const defenderSlot = document.querySelectorAll(`#player-field .slot`)[i];
+        const defenderCard = defenderSlot.querySelector('.card');
+        if (defenderCard) {
+          defenderCard.classList.add('destroyed');
+          await new Promise(resolve => setTimeout(resolve, 1200)); // Delay da animação de destruição
+        }
+        grave.push(defender);
+        log(`${defender.name} foi destruído!`);
+        playerField[i] = null;
+      } else {
+        log(`${defender.name} sobreviveu com DEF ${defender.def}`);
+      }
+
+    } else if (attacker && !defender) {
+      log(`${attacker.name} ataca você diretamente!`);
+      await new Promise(resolve => setTimeout(resolve, 600)); // Delay antes do ataque direto
+
+      await animateAttack('opponent-field', i);
+
+      playerHP -= attacker.atk;
+      if (playerHP <= 0) {
+        playerHP = 0;
+        render();
+        setTimeout(() => {
+          alert('Você perdeu!');
+          restartGame();
+        }, 100);
+        return;
+      }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 600)); // Delay entre ataques
+  }
+
+  render();
+  log('--- Turno do Oponente Encerrado ---');
+  invocacaoNormalFeita = false;
+}
+
   
   
 document.getElementById('end-prep-btn').addEventListener('click', () => {
@@ -510,7 +548,7 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
   
     await new Promise(resolve => setTimeout(resolve, 700));
   
-    if (attackerCard) attackerCard.classList.remove('attack');
+    if (attackerCard ) attackerCard.classList.remove('attack');
     if (defenderFieldId && defenderIndex !== null) {
       const defenderSlot = document.querySelectorAll(`#${defenderFieldId} .slot`)[defenderIndex];
       const defenderCard = defenderSlot.querySelector('.card');
@@ -571,12 +609,20 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       <p><strong>DEF:</strong> ${card.def}</p>
       <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
       <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
+      <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
     `;
   
     modal.style.display = 'block';
   }
   
-  
+  function getExpansaoClass(expansao) {
+    switch (expansao) {
+      case 'Hajimeru (Básico)':
+        return 'expansao-hajimeru-basic';
+      case 'Hajimeru (Avançado)':
+        return 'expansao-hajimeru-advanced';
+    }
+  }
   
   
   

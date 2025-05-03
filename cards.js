@@ -7,6 +7,7 @@ export const allCards = [
     description: 'Um professor com muita energia.',
     specialEffect: 'Se fortalece em +2 de Defesa.',
     tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.fase === 'combate') {
         context.log(`${self.name} se fortalece! Ganha +2 DEF!`);
@@ -22,6 +23,7 @@ export const allCards = [
     description: 'Um ex-militar com muita vontade de lutar.',
     specialEffect: 'Se fortalece em +1 de Ataque.',
     tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.fase === 'combate') {
         context.log(`${self.name} se fortalece! Ganha +1 ATK!`);
@@ -37,6 +39,7 @@ export const allCards = [
     description: 'Uma jovem com poderes insanos.',
     specialEffect: 'Cura o jogador em +1 de HP.',
     tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.fase === 'preparacao') {
         context.log(`Jogador se cura em +1 de HP`);
@@ -52,6 +55,7 @@ export const allCards = [
     description: 'Um xamã com poderes ancestrais.',
     specialEffect: 'Compra mais uma carta.',
     tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.fase === 'preparacao') {
         context.log(`Jogador pode comprar mais uma carta`);
@@ -67,6 +71,7 @@ export const allCards = [
     description: 'Um jovem com poderes equilibrados.',
     specialEffect: 'Em turnos pares, ganha +2 de ATK.',
     tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.turn % 2 === 0) {
         self.atk += 2;
@@ -82,6 +87,7 @@ export const allCards = [
     description: 'Um Citurin com poderes de velocidade.',
     specialEffect: 'Num campo vazio, recebe +1 de DEF.',
     tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.enemiesOnField === 0 && context.fase === 'preparacao') {
         self.def += 1;
@@ -97,6 +103,7 @@ export const allCards = [
     description: 'Um ex-mercenário com poderes de tempo.',
     specialEffect: 'Num campo cheio, recebe +2 de DEF.',
     tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.playerCardsOnField >= 2 && context.fase === 'preparacao') {
         self.def += 2;
@@ -112,6 +119,7 @@ export const allCards = [
     description: 'Um ninja com poderes de teleporte.',
     specialEffect: 'Enquanto o deck tiver mais de 10 cartas, recebe +2 de ATK.',
     tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.deckSize > 10 && context.fase === 'preparacao') {
         self.atk += 2;
@@ -126,6 +134,7 @@ export const allCards = [
     img: 'cartas/Zym.png',
     description: 'Um dragão celestial que aparece ao lado de Hilda. Pode ser invocado se houver uma Hilda em campo',
     tipoInvocacao: 'especial',
+    expansao: 'Hajimeru (Avançado)', // Novo atributo
     podeSerInvocada: (playerField) => {
       return playerField.some(carta => carta && carta.name === 'Hilda');
     }

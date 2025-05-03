@@ -57,16 +57,19 @@ function initDeckManager() {
     expansionContainer.appendChild(expansionTitle);
 
     // Criar os elementos das cartas dentro da expansão
-    const cardsContainer = document.createElement('div');
-    cardsContainer.classList.add('cards-row');
-    expansions[expansion].forEach(card => {
+    let cardsContainer = null;
+    expansions[expansion].forEach((card, index) => {
+      if (index % 8 === 0) {
+        cardsContainer = document.createElement('div');
+        cardsContainer.classList.add('cards-row');
+        expansionContainer.appendChild(cardsContainer);
+      }
+
       const cardElement = createCardElement(card);
       cardElement.classList.add('card');
       cardElement.addEventListener('click', () => selectCard(card));
       cardsContainer.appendChild(cardElement);
     });
-
-    expansionContainer.appendChild(cardsContainer);
     availableCardsContainer.appendChild(expansionContainer);
   });
 
@@ -566,7 +569,8 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       compra: canDrawThisTurn,
       log: (message) => log(message),
       permitirCompra: () => { canDrawThisTurn = true; },
-      modifyPlayerHP: (delta) => { playerHP += delta; }
+      modifyPlayerHP: (delta) => { playerHP += delta; },
+      modifyOpponentHP: (delta) => { opponentHP += delta; }
     };
   
     // Ativar efeitos das cartas do jogador

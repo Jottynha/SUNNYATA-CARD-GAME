@@ -128,6 +128,75 @@ export const allCards = [
     }
   },
   {
+    name: 'Stolas',
+    atk: 3,
+    def: 2,
+    img: 'cartas/Stolas.png',
+    description: 'Um aristocrático carismático com poderes ocultos.',
+    specialEffect: 'Durante a fase de preparação, se houver 2 ou mais inimigos no campo, ele ganha +1 ATK e +1 DEF.',
+    tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)',
+    effect: (self, context) => {
+      if (context.fase === 'preparacao' && context.enemiesOnField >= 2) {
+        self.atk += 1;
+        self.def += 1;
+        context.log(`${self.name} manipula o caos ao seu favor! +1 ATK / +1 DEF`);
+      }
+    }
+  },
+  {
+    name: 'Santinho',
+    atk: 5,
+    def: 3,
+    img: 'cartas/Santinho.png',
+    description: 'Um caçador sorridente que nunca erra o alvo.',
+    specialEffect: 'Na fase de preparação, se o oponente tiver mais cartas em campo, causa 1 de dano direto.',
+    tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)',
+    effect: (self, context) => {
+      if (context.fase === 'preparacao' && context.enemiesOnField > context.playerCardsOnField) {
+        context.modifyOpponentHP(-1);
+        context.log(`${self.name} atira com precisão letal! Causa 1 de dano direto.`);
+      }
+    }
+  },
+  {
+    name: 'Free',
+    atk: 2,
+    def: 2,
+    img: 'cartas/Free.png',
+    description: 'Um espírito livre que se fortalece com doçura.',
+    specialEffect: 'Ao ser invocado, permite ao jogador comprar 1 carta se ainda não comprou neste turno.',
+    tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)',
+    effect: (self, context) => {
+      if (!context.compra) {
+        context.permitirCompra();
+        context.log(`${self.name} oferece um doce impulso! Você pode comprar uma carta.`);
+      }
+    }
+  },
+  {
+    name: 'Dominique',
+    atk: 4,
+    def: 4,
+    img: 'cartas/Dominique.png',
+    description: 'Uma guerreira intensa que protege seus aliados com fúria.',
+    specialEffect: 'Quando invocada, todas as outras cartas aliadas ganham +1 DEF por este turno.',
+    tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)',
+    effect: (self, context) => {
+      if (context.fase === 'preparacao') {
+        playerField.forEach(carta => {
+          if (carta && carta !== self) {
+            carta.def += 1;
+          }
+        });
+        context.log(`${self.name} entra em campo com ira! Todos aliados ganham +1 DEF.`);
+      }
+    }
+  },
+  {
     name: 'Zym',
     atk: 7,
     def: 3,

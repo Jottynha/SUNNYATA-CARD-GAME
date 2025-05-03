@@ -2,7 +2,9 @@ import { allCards } from './cards.js';
 
 // Variáveis globais
 let playerField = [null, null, null]; // Slots do jogador
+const magicField = [null, null];
 let opponentField = [null, null, null]; // Slots do oponente
+const opponentMagicField = [null, null];
 let selectedCard = null; // Carta selecionada para combate
 let playerHP = 10;
 let opponentHP = 10;
@@ -150,44 +152,106 @@ function initDeckManager() {
 
 // Função para renderizar o campo e a mão
 function render() {
-    document.getElementById('player-hp').textContent = playerHP;
-    document.getElementById('opponent-hp').textContent = opponentHP;
-    const playerSlots = document.querySelectorAll('#player-field .slot');
-    const opponentSlots = document.querySelectorAll('#opponent-field .slot');
-    const handContainer = document.getElementById('player-hand');
-  
-    // Renderiza campo do jogador
-    playerSlots.forEach((slot, index) => {
+  document.getElementById('player-hp').textContent = playerHP;
+  document.getElementById('opponent-hp').textContent = opponentHP;
+
+  const playerSlots = document.querySelectorAll('#player-field .slot');
+  const opponentSlots = document.querySelectorAll('#opponent-field .slot');
+  const magicSlots = document.querySelectorAll('#magic-field .magic-slot');
+  const opponentMagicSlots = document.querySelectorAll('#opponent-magic-field .magic-slot');
+  const handContainer = document.getElementById('player-hand');
+
+  // Monstros - jogador
+  playerSlots.forEach((slot, index) => {
+    slot.innerHTML = '';
+    const card = playerField[index];
+    if (card) {
+      const el = card.tipo === 'magia' ? createMagicCardElement(card) : createCardElement(card);
+      slot.appendChild(el);
+    }
+  });
+
+  // Monstros - oponente
+  opponentSlots.forEach((slot, index) => {
+    slot.innerHTML = '';
+    const card = opponentField[index];
+    if (card) {
+      const el = card.tipo === 'magia' ? createMagicCardElement(card) : createCardElement(card);
+      slot.appendChild(el);
+    }
+  });
+
+  // Magias - jogador
+  if (magicSlots && magicField) {
+    magicSlots.forEach((slot, index) => {
       slot.innerHTML = '';
-      if (playerField[index]) {
-        const card = createCardElement(playerField[index]);
-        slot.appendChild(card);
+      if (magicField[index]) {
+        const el = createMagicCardElement(magicField[index]);
+        slot.appendChild(el);
       }
     });
-  
-    // Renderiza campo do oponente
-    opponentSlots.forEach((slot, index) => {
+  }
+
+  // Magias - oponente (se aplicável)
+  if (opponentMagicSlots && opponentMagicField) {
+    opponentMagicSlots.forEach((slot, index) => {
       slot.innerHTML = '';
-      if (opponentField[index]) {
-        const card = createCardElement(opponentField[index]);
-        slot.appendChild(card);
+      if (opponentMagicField[index]) {
+        const el = createMagicCardElement(opponentMagicField[index]);
+        slot.appendChild(el);
       }
+    });
+  }
+
+  // Mão
+  handContainer.innerHTML = '';
+  playerHand.forEach((card, i) => {
+    const el = card.tipo === 'magia' ? createMagicCardElement(card) : createCardElement(card);
+
+    if (card === lastDrawnCard) {
+      el.classList.add('ultima-carta-comprada');
+    }
+
+    el.addEventListener('click', () => {
+      selectedHandCard = card;
+      log(`Carta "${card.name}" selecionada. Escolha um slot no campo.`);
+    });
+
+    handContainer.appendChild(el);
+  });
+}
+
+  
+  function createMagicCardElement(card) {
+    const cardElement = document.createElement('div');
+    cardElement.classList.add('card', 'magic-card');
+  
+    // Imagem
+    const img = document.createElement('img');
+    img.src = card.img;
+    img.alt = card.name;
+    img.classList.add('card-image');
+    cardElement.appendChild(img);
+  
+    // Texto
+    const text = document.createElement('div');
+    text.classList.add('card-text');
+    text.innerHTML = `<strong>${card.name}</strong><br><em>${card.subtipo === 'continua' ? 'Magia Contínua' : 'Magia Imediata'}</em>`;
+    cardElement.appendChild(text);
+  
+    if (animacaoEntradaCampo) {
+      cardElement.classList.add('entrada-carta');
+      setTimeout(() => {
+        cardElement.classList.remove('entrada-carta');
+      }, 800);
+    }
+  
+    cardElement.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showCardDetailsModal(card);
     });
   
-    // Renderiza mão
-    handContainer.innerHTML = '';
-    playerHand.forEach((card, i) => {
-      const cardEl = createCardElement(card);
-      if (card === lastDrawnCard) {
-        cardEl.classList.add('ultima-carta-comprada');
-      }
-      cardEl.addEventListener('click', () => {
-        selectedHandCard = card;
-        log(`Carta "${card.name}" selecionada. Escolha um slot no campo.`);
-      });
-      
-      handContainer.appendChild(cardEl);
-    });
+    return cardElement;
   }
   
 
@@ -325,6 +389,47 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
   });
 });
 
+document.querySelectorAll('#magic-field .magic-slot').forEach((slot, index) => {
+  slot.addEventListener('click', () => {
+    if (!selectedHandCard) {
+      log('Nenhuma carta selecionada!');
+      return;
+    }
+
+    if (selectedHandCard.tipo !== 'magia') {
+      log('Apenas cartas mágicas podem ser colocadas neste slot!');
+      return;
+    }
+
+    if (magicField[index]) {
+      log('Este slot de magia já está ocupado!');
+      return;
+    }
+
+    const cartaMagia = selectedHandCard;
+    const i = playerHand.indexOf(cartaMagia);
+    if (i !== -1) playerHand.splice(i, 1);
+
+    // Ativa o efeito
+    ativarEfeitosDasCartas('preparacao', cartaMagia);
+
+    if (cartaMagia.subtipo === 'imediata') {
+      // Vai direto pro cemitério
+      grave.push(cartaMagia);
+      log(`${cartaMagia.name} foi ativada e enviada ao cemitério.`);
+    } else if (cartaMagia.subtipo === 'continua') {
+      // Permanece no campo
+      magicField[index] = cartaMagia;
+      log(`${cartaMagia.name} foi ativada e permanece no campo.`);
+    }
+
+    selectedHandCard = null;
+    render();
+  });
+});
+
+
+
   
   // Comprar carta aleatória
   document.getElementById('draw-btn').addEventListener('click', () => {
@@ -422,32 +527,70 @@ async function startCombatPhase() {
 async function opponentTurn() {
   await new Promise(resolve => setTimeout(resolve, 800));
 
-  const emptyIndices = opponentField
-    .map((c, i) => (c === null ? i : -1))
-    .filter(i => i !== -1);
-
-  if (emptyIndices.length > 0 && opponentDeck.length > 0) {
+  // Comprar carta se houver espaço no campo de magia ou criatura
+  if (opponentDeck.length > 0) {
     const drawnCard = opponentDeck.pop();
-    let bestSlot = -1;
-    let canDestroy = false;
 
-    for (let slot of emptyIndices) {
-      const playerCard = playerField[slot];
-      if (playerCard && drawnCard.atk >= playerCard.def) {
-        bestSlot = slot;
-        canDestroy = true;
-        break;
+    if (drawnCard.tipo === 'magia') {
+      // Verifica se há espaço no campo de magia
+      const magicSlotIndex = opponentMagicField.findIndex(slot => slot === null);
+      if (magicSlotIndex !== -1 && typeof drawnCard.effect === 'function') {
+        // Verifica se a magia pode ser ativada nesta fase
+        const context = {
+          fase: 'preparacao',
+          modifyPlayerHP: value => {
+            playerHP += value;
+            if (playerHP < 0) playerHP = 0;
+          },
+          modifyOpponentHP: value => {
+            opponentHP += value;
+            if (opponentHP < 0) opponentHP = 0;
+          },
+          log: msg => log(msg),
+        };
+
+        // Inverter o contexto: como o bot é quem joga, ele é o "jogador"
+        const flippedContext = {
+          ...context,
+          modifyPlayerHP: context.modifyOpponentHP,
+          modifyOpponentHP: context.modifyPlayerHP
+        };
+
+        drawnCard.effect(drawnCard, flippedContext);
+        opponentMagicField[magicSlotIndex] = drawnCard;
+        log(`Oponente ativou a magia ${drawnCard.name}`);
+        render();
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Delay após uso da magia
+      }
+    } else {
+      // Se for criatura, invocação normal segue como antes:
+      const emptyIndices = opponentField
+        .map((c, i) => (c === null ? i : -1))
+        .filter(i => i !== -1);
+
+      if (emptyIndices.length > 0) {
+        let bestSlot = -1;
+        let canDestroy = false;
+
+        for (let slot of emptyIndices) {
+          const playerCard = playerField[slot];
+          if (playerCard && drawnCard.atk >= playerCard.def) {
+            bestSlot = slot;
+            canDestroy = true;
+            break;
+          }
+        }
+
+        if (bestSlot === -1) {
+          bestSlot = emptyIndices[0];
+        }
+
+        opponentField[bestSlot] = drawnCard;
+        log(`Oponente invocou ${drawnCard.name} no slot ${bestSlot + 1}`);
+        render();
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
-
-    if (bestSlot === -1) {
-      bestSlot = emptyIndices[0];
-    }
-
-    opponentField[bestSlot] = drawnCard;
-    log(`Oponente invocou ${drawnCard.name} no slot ${bestSlot + 1}`);
-    render(); // Atualiza o campo após invocação
-    await new Promise(resolve => setTimeout(resolve, 800)); // Delay após invocação
   }
 
   for (let i = 0; i < 3; i++) {
@@ -559,11 +702,11 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
     }
   }
   
-  function ativarEfeitosDasCartas(faseAtual) {
+  function ativarEfeitosDasCartas(faseAtual, cartaUnica = null) {
     const contexto = {
       fase: faseAtual,
-      enemiesOnField: opponentField.filter(carta => carta !== null).length,
-      playerCardsOnField: playerField.filter(carta => carta !== null).length,
+      enemiesOnField: opponentField.filter(c => c !== null).length,
+      playerCardsOnField: playerField.filter(c => c !== null).length,
       deckSize: deck.length,
       turn: turn,
       compra: canDrawThisTurn,
@@ -573,20 +716,20 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       modifyOpponentHP: (delta) => { opponentHP += delta; }
     };
   
-    // Ativar efeitos das cartas do jogador
-    for (const carta of playerField) {
-      if (carta && typeof carta.effect === 'function') {
-        carta.effect(carta, contexto);
+    if (cartaUnica) {
+      if (typeof cartaUnica.effect === 'function') {
+        cartaUnica.effect(cartaUnica, contexto);
       }
+      return;
     }
   
-    // (Opcional) Ativar efeitos das cartas do oponente também:
-    for (const carta of opponentField) {
+    [...playerField, ...magicField, ...opponentField].forEach(carta => {
       if (carta && typeof carta.effect === 'function') {
         carta.effect(carta, contexto);
       }
-    }
+    });
   }
+  
   function showCardDetailsModal(card) {
     const modal = document.getElementById('card-details-modal');
     const modalContent = document.getElementById('card-details-content');

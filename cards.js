@@ -207,5 +207,21 @@ export const allCards = [
     podeSerInvocada: (playerField) => {
       return playerField.some(carta => carta && carta.name === 'Hilda');
     }
+  },
+  {
+    name: 'Chama Purificadora',
+    tipo: 'magia',
+    subtipo: 'continua',
+    img: 'cartas/ChamaPurificadora.png',
+    description: 'Causa 2 de dano direto ao oponente.',
+    tipoInvocacao: 'especial',
+    expansao: 'Elemental Surge',
+    effect: (self, context) => {
+      if (context.fase === 'preparacao') {
+        context.modifyOpponentHP(-2);
+        context.log(`${self.name} foi ativada e causou 2 de dano direto ao oponente.`);
+      }
+    }
   }
+  
 ];

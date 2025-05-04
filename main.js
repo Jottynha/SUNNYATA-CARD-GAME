@@ -17,6 +17,7 @@ let playerHand = []; // cartas na mão
 let selectedHandCard = null
 let deck = [];
 let opponentDeck = [];
+let opponentHand = [];
 let grave = [];
 let opponentGrave = [];
 let lastDrawnCard = null;
@@ -29,6 +30,11 @@ function createOpponentDeck() {
   for (let i = 0; i < 20; i++) { // 20 cartas
     const randomCard = { ...allCards[Math.floor(Math.random() * allCards.length)] };
     opponentDeck.push(randomCard);
+  }
+  for (let i = 0; i < 5; i++) { 
+    const randomCard = { ...opponentDeck[Math.floor(Math.random() * allCards.length)] };
+    opponentDeck.pop(randomCard);
+    opponentHand.push(randomCard);
   }
 }
 
@@ -88,29 +94,28 @@ function initDeckManager() {
   document.getElementById('start-game-btn').addEventListener('click', startGame);
 }
 
-function verificarPossibilidadesDeFusao(cartaSelecionada) {
-  if (!cartaSelecionada.fusoesPossiveis) return;
+function obterFusaoDisponivelEntre(cartas) {
+  for (let i = 0; i < cartas.length; i++) {
+    const carta1 = cartas[i];
+    if (!carta1.fusoesPossiveis) continue;
 
-  const candidatos = [...playerHand, ...playerField].filter(carta =>
-    carta && carta !== cartaSelecionada &&
-    cartaSelecionada.fusoesPossiveis.some(f => f.com === carta.name)
-  );
+    for (let j = 0; j < cartas.length; j++) {
+      if (i === j) continue;
+      const carta2 = cartas[j];
 
-  if (candidatos.length > 0) {
-    const fusoesDiv = document.getElementById('fusao-opcoes');
-    fusoesDiv.innerHTML = ''; // Limpa
-
-    candidatos.forEach(cartaFusionavel => {
-      const fusao = cartaSelecionada.fusoesPossiveis.find(f => f.com === cartaFusionavel.name);
-      const btn = document.createElement('button');
-      btn.textContent = `Fundir com ${cartaFusionavel.name}`;
-      btn.onclick = () => realizarFusao(cartaSelecionada, cartaFusionavel, fusao.resultado);
-      fusoesDiv.appendChild(btn);
-    });
-
-    fusoesDiv.style.display = 'block';
+      const fusao = carta1.fusoesPossiveis.find(f => f.com === carta2.name);
+      if (fusao) {
+        return {
+          base: carta1,
+          com: carta2,
+          resultado: fusao.resultado
+        };
+      }
+    }
   }
+  return null;
 }
+
 
 
 
@@ -240,13 +245,40 @@ function verificarPossibilidadesDeFusao(cartaSelecionada) {
     parentSlot.appendChild(equipamentoEl);
 }
 
+function createEnemyCardElement(card, debug = false) {
+  const el = document.createElement('div');
+  el.classList.add('card', 'enemy-card');
+
+  if (debug) {
+    el.textContent = `${card.name} (${card.tipo})`;
+    el.style.backgroundColor = '#d33';
+    el.style.color = '#fff';
+    el.style.fontSize = '0.8em';
+    el.style.padding = '4px';
+    el.style.border = '2px solid #000';
+    el.title = JSON.stringify(card, null, 2);
+  } else {
+    el.classList.add('card-back');
+    el.title = 'Carta do oponente';
+  }
+
+  return el;
+}
   
   
   
   
   
 
+let DEBUG_MODE = false;
 
+document.addEventListener('keydown', e => {
+  if (e.key === 'd') {
+    DEBUG_MODE = !DEBUG_MODE;
+    log(`Debug Mode: ${DEBUG_MODE ? 'Ativado' : 'Desativado'}`);
+    render();
+  }
+});
 
 // Função para renderizar o campo e a mão
 function render() {
@@ -332,6 +364,13 @@ function render() {
     });
 
     handContainer.appendChild(el);
+  });
+
+  const opponentHandContainer = document.getElementById('opponent-hand');
+  opponentHandContainer.innerHTML = '';
+  opponentHand.forEach(card => {
+    const el = createEnemyCardElement(card, DEBUG_MODE); // DEBUG_MODE é uma flag que você controla
+    opponentHandContainer.appendChild(el);
   });
 
   // Render - Slot de Fusão
@@ -595,25 +634,47 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
 // Seleciona o Slot de Fusão
 const fusionSlot = document.querySelector('#fusion-slot .slot');
 
-// Função para mostrar as cartas de fusão possíveis
 function mostrarOpcoesDeFusao(candidatos) {
-  // Exibe as opções de fusão no campo ou cria um modal
-  const fusionOptionsContainer = document.createElement('div');
-  fusionOptionsContainer.id = 'fusion-options-container';
-  
+  const modal = document.getElementById('fusao-opcoes');
+  modal.innerHTML = ''; // limpa conteúdo anterior
+
+  const overlay = document.createElement('div');
+  overlay.id = 'fusion-overlay';
+  overlay.className = 'fusion-overlay';
+
+  const modalBox = document.createElement('div');
+  modalBox.className = 'fusion-modal';
+
+  const titulo = document.createElement('h3');
+  titulo.innerText = 'Escolha uma carta para fusão:';
+  modalBox.appendChild(titulo);
+
   candidatos.forEach(carta => {
     const cartaOption = document.createElement('button');
     cartaOption.className = 'fusion-option';
     cartaOption.innerText = carta.name;
     cartaOption.addEventListener('click', () => {
       executarFusao(carta);
-      document.body.removeChild(fusionOptionsContainer); // Fecha as opções
+      modal.style.display = 'none';
+      document.body.removeChild(overlay);
     });
-    fusionOptionsContainer.appendChild(cartaOption);
+    modalBox.appendChild(cartaOption);
   });
 
-  document.body.appendChild(fusionOptionsContainer);
+  const botaoFechar = document.createElement('button');
+  botaoFechar.innerText = 'Cancelar';
+  botaoFechar.className = 'fusion-cancel';
+  botaoFechar.addEventListener('click', () => {
+    modal.style.display = 'none';
+    document.body.removeChild(overlay);
+  });
+
+  modalBox.appendChild(botaoFechar);
+  overlay.appendChild(modalBox);
+  document.body.appendChild(overlay);
+  modal.style.display = 'block';
 }
+
 
 // Função para executar a fusão
 function executarFusao(cartaFusionavel) {
@@ -894,12 +955,49 @@ async function startCombatPhase() {
   });
 }
 
+function realizarFusao(carta1, carta2, resultado, isOpponent = false) {
+  const campo = isOpponent ? opponentField : playerField;
+  const mao = isOpponent ? opponentHand : playerHand;
+  const fusaoSlot = isOpponent ? opponentFusionField : fusionField;
+
+  // Remove cartas do campo ou mão
+  const removerCarta = (carta) => {
+    const indexCampo = campo.findIndex(c => c === carta);
+    if (indexCampo !== -1) {
+      campo[indexCampo] = null;
+      grave.push(carta);
+      return;
+    }
+
+    const indexMao = mao.findIndex(c => c === carta);
+    if (indexMao !== -1) {
+      mao.splice(indexMao, 1);
+      grave.push(carta);
+    }
+  };
+
+  removerCarta(carta1);
+  removerCarta(carta2);
+
+  fusaoSlot[0] = { ...resultado };
+}
+
 
 async function opponentTurn() {
   await new Promise(resolve => setTimeout(resolve, 800));
 
   if (opponentDeck.length > 0) {
     const drawnCard = opponentDeck.pop();
+    if (drawnCard) {
+      opponentHand.push(drawnCard);
+    }
+    const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(c => c));
+    if (fusaoBot && !opponentFusionField[0]) {
+      realizarFusao(fusaoBot.base, fusaoBot.com, fusaoBot.resultado, true); // true = bot
+      log(`O oponente fundiu ${fusaoBot.base.name} com ${fusaoBot.com.name} e criou ${fusaoBot.resultado.name}`);
+      render();
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
 
     const context = {
       fase: 'preparacao',

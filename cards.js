@@ -1,6 +1,8 @@
 export const allCards = [
   {
     name: 'Martin',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 2,
     def: 3,
     img: 'cartas/Martin.png',
@@ -17,6 +19,8 @@ export const allCards = [
   },
   {
     name: 'Franscisco',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 4,
     def: 2,
     img: 'cartas/Francisco.png',
@@ -33,6 +37,8 @@ export const allCards = [
   },
   {
     name: 'Hilda',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 5,
     def: 1,
     img: 'cartas/Hilda(2).png',
@@ -49,6 +55,8 @@ export const allCards = [
   },
   {
     name: 'Petrichor',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 2,
     def: 2,
     img: 'cartas/Petrichor.png',
@@ -65,6 +73,8 @@ export const allCards = [
   },
   {
     name: 'Diego',
+    tipo:'criatura',
+    subtipo: 'NPC',
     atk: 2,
     def: 2,
     img: 'cartas/Diego.png',
@@ -81,6 +91,8 @@ export const allCards = [
   },
   {
     name: 'Helios',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 4,
     def: 1,
     img: 'cartas/Helios(2).png',
@@ -97,6 +109,8 @@ export const allCards = [
   },
   {
     name: 'Heimdall',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 4,
     def: 1,
     img: 'cartas/Heimdall.png',
@@ -113,6 +127,8 @@ export const allCards = [
   },
   {
     name: 'Sasuke',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 4,
     def: 1,
     img: 'cartas/Sasuke.png',
@@ -129,6 +145,8 @@ export const allCards = [
   },
   {
     name: 'Stolas',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 3,
     def: 2,
     img: 'cartas/Stolas.png',
@@ -146,6 +164,8 @@ export const allCards = [
   },
   {
     name: 'Santinho',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 5,
     def: 3,
     img: 'cartas/Santinho.png',
@@ -162,6 +182,8 @@ export const allCards = [
   },
   {
     name: 'Free',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 2,
     def: 2,
     img: 'cartas/Free.png',
@@ -178,6 +200,8 @@ export const allCards = [
   },
   {
     name: 'Dominique',
+    tipo:'criatura',
+    subtipo: 'personagem',
     atk: 4,
     def: 4,
     img: 'cartas/Dominique.png',
@@ -198,6 +222,8 @@ export const allCards = [
   },
   {
     name: 'Zym',
+    tipo:'criatura',
+    subtipo: 'NPC',
     atk: 7,
     def: 3,
     img: 'cartas/Zym.png',
@@ -209,19 +235,49 @@ export const allCards = [
     }
   },
   {
-    name: 'Chama Purificadora',
+    name: 'Ruína',
     tipo: 'magia',
     subtipo: 'continua',
-    img: 'cartas/ChamaPurificadora.png',
+    img: 'cartas/Ruína.png',
     description: 'Causa 2 de dano direto ao oponente.',
     tipoInvocacao: 'especial',
-    expansao: 'Elemental Surge',
+    alvo: 'oponente',
+    duracao: 1,
+    expansao: 'Hajimeru (Avançado)',
     effect: (self, context) => {
       if (context.fase === 'preparacao') {
         context.modifyOpponentHP(-2);
         context.log(`${self.name} foi ativada e causou 2 de dano direto ao oponente.`);
       }
     }
+  },
+  {
+    name: 'Destruição Inerte',
+    tipo: 'magia',
+    subtipo: 'imediata',
+    img: 'cartas/Destruicao.png',
+    description: 'Destrói uma criatura no campo inimigo.',
+    tipoInvocacao: 'especial',
+    alvo: 'campoInimigo', // ou 'campoAliado', dependendo do efeito
+    expansao: 'Hajimeru (Avançado)',
+    effect: (self, context) => {
+      const { alvoCampo } = context;
+  
+      if (!alvoCampo) {
+        context.log(`Nenhum alvo foi selecionado para ${self.name}.`);
+        return;
+      }
+  
+      context.log(`${self.name} destruiu ${alvoCampo.name} no campo inimigo!`);
+  
+      // Remove a carta do campo inimigo
+      const index = context.opponentField.indexOf(alvoCampo);
+      if (index !== -1) {
+        context.opponentField[index] = null;
+        context.opponentGrave.push(alvoCampo);
+      }
+    }
   }
+  
   
 ];

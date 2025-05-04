@@ -6,8 +6,8 @@ const magicField = [null, null];
 let opponentField = [null, null, null]; // Slots do oponente
 const opponentMagicField = [null, null];
 let selectedCard = null; // Carta selecionada para combate
-let playerHP = 10;
-let opponentHP = 10;
+let playerHP = 20;
+let opponentHP = 20;
 let canDrawThisTurn = true;
 let invocacaoNormalFeita = false; // controla a invocação normal no turno
 let turn = 0;
@@ -41,12 +41,12 @@ function initDeckManager() {
   const expansions = {};
 
   allCards.forEach(card => {
-    const expansion = card.expansao || 'Sem Expansão'; // Caso uma carta não tenha expansão definida, será atribuída "Sem Expansão"
-    
+    const expansion = card.expansao || 'Sem Expansão';
+
     if (!expansions[expansion]) {
       expansions[expansion] = [];
     }
-    
+
     expansions[expansion].push(card);
   });
 
@@ -67,16 +67,22 @@ function initDeckManager() {
         expansionContainer.appendChild(cardsContainer);
       }
 
-      const cardElement = createCardElement(card);
+      // Escolhe a função de criação com base no tipo da carta
+      const cardElement = card.tipo === 'magia'
+        ? createMagicCardElement(card)
+        : createCardElement(card);
+
       cardElement.classList.add('card');
       cardElement.addEventListener('click', () => selectCard(card));
       cardsContainer.appendChild(cardElement);
     });
+
     availableCardsContainer.appendChild(expansionContainer);
   });
 
   document.getElementById('start-game-btn').addEventListener('click', startGame);
 }
+
 
  
   function getSelectedCardsArray() {
@@ -219,6 +225,22 @@ function render() {
 
     handContainer.appendChild(el);
   });
+  if (opponentHP <= 0) {
+    opponentHP = 0;
+    setTimeout(() => {
+      alert('Você venceu!');
+      restartGame();
+    }, 100);
+    return;
+  }
+  else if (playerHP <= 0) {
+    playerHP = 0;
+    setTimeout(() => {
+      alert('Você perdeu!');
+      restartGame();
+    }, 100);
+    return;
+  }
 }
 
   
@@ -343,10 +365,17 @@ document.querySelectorAll('.player-slot').forEach((slot, index) => {
 
 document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
   slot.addEventListener('click', () => {
+    
     if (!selectedHandCard) {
       log('Nenhuma carta selecionada!');
       return;
     }
+
+    if (selectedHandCard.tipo !== 'criatura') {
+      log('Apenas cartas de criatura podem ser colocadas neste slot!');
+      return;
+    }
+    
 
     if (playerField[index]) {
       log('Este slot já está ocupado!');
@@ -418,9 +447,11 @@ document.querySelectorAll('#magic-field .magic-slot').forEach((slot, index) => {
       grave.push(cartaMagia);
       log(`${cartaMagia.name} foi ativada e enviada ao cemitério.`);
     } else if (cartaMagia.subtipo === 'continua') {
-      // Permanece no campo
-      magicField[index] = cartaMagia;
-      log(`${cartaMagia.name} foi ativada e permanece no campo.`);
+        magicField[index] = {
+          ...cartaMagia,
+          turnosRestantes: cartaMagia.duracao || Infinity
+        };
+        log(`${cartaMagia.name} foi ativada e permanece no campo por ${cartaMagia.duracao} turno(s).`);
     }
 
     selectedHandCard = null;
@@ -521,6 +552,19 @@ async function startCombatPhase() {
   render();
   log('--- Fase de Combate Encerrada ---');
   canDrawThisTurn = true;
+  opponentMagicField.forEach((carta, index) => {
+    if (carta && carta.tipo === 'magia' && carta.subtipo === 'continua') {
+      if (carta.turnosRestantes <= 0) {
+        log(`${carta.name} se esgotou e foi enviada ao cemitério.`);
+        opponentGrave.push(carta);
+        opponentMagicField[index] = null; 
+        return;
+      }
+      ativarEfeitosDasCartas('preparacao', carta);
+      carta.turnosRestantes--;
+      render();
+    }
+  });
 }
 
 
@@ -643,6 +687,20 @@ async function opponentTurn() {
   render();
   log('--- Turno do Oponente Encerrado ---');
   invocacaoNormalFeita = false;
+  magicField.forEach((carta, index) => {
+    if (carta && carta.tipo === 'magia' && carta.subtipo === 'continua') {
+      if (carta.turnosRestantes <= 0) {
+        log(`${carta.name} se esgotou e foi enviada ao cemitério.`);
+        grave.push(carta);
+        magicField[index] = null;
+        render(); 
+        return;
+      }
+      ativarEfeitosDasCartas('preparacao', carta);
+      carta.turnosRestantes--;
+      render();
+    }
+  });  
 }
 
   
@@ -703,8 +761,14 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
   }
   
   function ativarEfeitosDasCartas(faseAtual, cartaUnica = null) {
-    const contexto = {
+    const contextoBase = {
       fase: faseAtual,
+      opponentField: opponentField,
+      playerField: playerField,
+      playerHP: playerHP,
+      opponentHP: opponentHP,
+      opponentGrave: opponentGrave,
+      playerGrave: grave,
       enemiesOnField: opponentField.filter(c => c !== null).length,
       playerCardsOnField: playerField.filter(c => c !== null).length,
       deckSize: deck.length,
@@ -713,22 +777,66 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       log: (message) => log(message),
       permitirCompra: () => { canDrawThisTurn = true; },
       modifyPlayerHP: (delta) => { playerHP += delta; },
-      modifyOpponentHP: (delta) => { opponentHP += delta; }
+      modifyOpponentHP: (delta) => { opponentHP += delta; },
     };
   
+    // Se a carta precisar de alvo
+    if (cartaUnica && cartaUnica.alvo && (cartaUnica.alvo === 'campoInimigo' || cartaUnica.alvo === 'campoAliado')) {
+      log(`Selecione um alvo no ${cartaUnica.alvo === 'campoInimigo' ? 'campo inimigo' : 'seu campo'} para ${cartaUnica.name}.`);
+  
+      const slots = cartaUnica.alvo === 'campoInimigo'
+        ? document.querySelectorAll('#opponent-field .slot')
+        : document.querySelectorAll('#player-field .slot');
+  
+      const campoReferente = cartaUnica.alvo === 'campoInimigo' ? opponentField : playerField;
+  
+      const handleClick = (event) => {
+        const index = Array.from(slots).indexOf(event.currentTarget);
+        const alvo = campoReferente[index];
+  
+        if (!alvo) {
+          log('Esse slot está vazio. Selecione um alvo válido.');
+          return;
+        }
+  
+        // Remove listeners para evitar múltiplos cliques futuros
+        slots.forEach(slot => slot.removeEventListener('click', handleClick));
+  
+        // Continua com o efeito passando o alvo
+        const contexto = {
+          ...contextoBase,
+          alvoCampo: alvo
+        };
+  
+        if (typeof cartaUnica.effect === 'function') {
+          cartaUnica.effect(cartaUnica, contexto);
+          grave.push(cartaUnica); // descarta a carta depois de uso
+        }
+  
+        render();
+      };
+  
+      // Aguarda o clique do jogador
+      slots.forEach(slot => slot.addEventListener('click', handleClick));
+      return; // aguarda o clique para continuar
+    }
+  
+    // Efeitos normais sem alvo
     if (cartaUnica) {
       if (typeof cartaUnica.effect === 'function') {
-        cartaUnica.effect(cartaUnica, contexto);
+        cartaUnica.effect(cartaUnica, contextoBase);
       }
       return;
     }
   
+    // Executa efeitos de todas as cartas no campo (sem alvo)
     [...playerField, ...magicField, ...opponentField].forEach(carta => {
       if (carta && typeof carta.effect === 'function') {
-        carta.effect(carta, contexto);
+        carta.effect(carta, contextoBase);
       }
     });
   }
+  
   
   function showCardDetailsModal(card) {
     const modal = document.getElementById('card-details-modal');
@@ -745,22 +853,52 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       invocacaoClass = 'invocacao-especial';
     } else {
       tipoInvocacao = 'Normal';
-      invocacaoClass = ''; // sem classe especial
+      invocacaoClass = '';
+    }
+    function formatarAlvo(alvo) {
+      switch (alvo) {
+        case 'oponente': return 'Oponente';
+        case 'campoInimigo': return 'Campo do Oponente';
+        case 'campoAliado': return 'Seu Campo';
+        case 'jogador': return 'Você';
+        case 'todos': return 'Todos os Jogadores';
+        default: return 'Não especificado';
+      }
     }
   
-    modalContent.innerHTML = `
-      <h2>${card.name}</h2>
-      <img src="${card.img}" alt="${card.name}" class="modal-card-img">
-      <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
-      <p><strong>ATK:</strong> ${card.atk}</p>
-      <p><strong>DEF:</strong> ${card.def}</p>
-      <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
-      <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
-      <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
-    `;
+    if (card.tipo === 'magia') {
+      // Exibição personalizada para cartas de magia
+      modalContent.innerHTML = `
+        <h2>${card.name}</h2>
+        <img src="${card.img}" alt="${card.name}" class="modal-card-img">
+        <p><strong>Tipo:</strong> Magia ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
+        <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
+        <p><strong>Alvo:</strong> ${formatarAlvo(card.alvo)}</p>
+        <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
+        <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
+      `;
+    } else {
+      // Exibição padrão para criaturas e outras cartas
+      modalContent.innerHTML = `
+        <h2>${card.name}</h2>
+        <img src="${card.img}" alt="${card.name}" class="modal-card-img">
+        <p><strong>Tipo:</strong> Criatura ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
+        <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
+        <p><strong>ATK:</strong> ${card.atk}</p>
+        <p><strong>DEF:</strong> ${card.def}</p>
+        <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
+        <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
+        <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
+      `;
+    }
   
     modal.style.display = 'block';
   }
+  
+  function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+  
   
   function getExpansaoClass(expansao) {
     switch (expansao) {

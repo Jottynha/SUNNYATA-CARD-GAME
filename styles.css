@@ -467,3 +467,18 @@ h1 { margin-top: 20px; }
   box-shadow: none;
 }
 
+.equipamento-anexado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.equipamento-anexado img.mini-card-img {
+  width: 40px;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+

@@ -321,7 +321,8 @@ export const allCards = [
   {
     name: 'Pyke (Despertada)',
     tipo: 'equipamento',
-    description: 'Aumenta o ATK da criatura equipada em +2.',
+    description: 'Arma de Hemolinfa',
+    specialEffect: 'Aumenta o ATK da criatura equipada em +2.',
     img: 'cartas/Pyke.png',
     expansao: 'Hajimeru (Básico)',
     effect: (self, context) => {
@@ -329,8 +330,6 @@ export const allCards = [
       const criatura = context.alvoCampo;
       if (criatura) {
         criatura.atk += 2;
-        criatura.equipamentos = criatura.equipamentos || [];
-        criatura.equipamentos.push(self);
         context.log(`${criatura.name} recebeu ${self.name} (+2 ATK).`);
       }
     }

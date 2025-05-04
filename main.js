@@ -239,16 +239,13 @@ function render() {
         : createCardElement(card);
   
       slot.appendChild(el);
-  
-      const existingEquipamentos = slot.querySelectorAll('.equipamento-card');
-    existingEquipamentos.forEach(e => e.remove());
 
-    if (card.equipamentos && card.equipamentos.length > 0) {
-      card.equipamentos.forEach((equipamento, eqIndex) => {
-        const equipEl = renderEquipamento(equipamento, eqIndex, slot);
-        slot.appendChild(equipEl);
-      });
-    }
+      if (card.equipamentos && card.equipamentos.length > 0) {
+        console.log(card.equipamentos);
+        card.equipamentos.forEach((equipamento, eqIndex) => {
+          renderEquipamento(equipamento, eqIndex, slot);
+        });
+      }
     }
   });
   

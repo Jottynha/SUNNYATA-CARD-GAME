@@ -7,13 +7,25 @@ export const allCards = [
     def: 3,
     img: 'cartas/Martin.png',
     description: 'Um professor com muita energia.',
-    specialEffect: 'Se fortalece em +2 de Defesa.',
+    specialEffect: 'Se fortalece em +2 de Defesa e compra uma carta mágica aleatória do deck.',
     tipoInvocacao: 'normal',
     expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.fase === 'combate') {
-        context.log(`${self.name} se fortalece! Ganha +2 DEF!`);
+        context.log(`${self.name} ativa seu efeito! Ganha +2 DEF e compra uma magia aleatória do deck!`);
         self.def += 2;
+        const magias = context.deck.filter(carta => carta.tipo === 'magia');
+        if (magias.length > 0) {
+          const sorteada = magias[Math.floor(Math.random() * magias.length)];
+          const index = context.deck.indexOf(sorteada);
+          if (index !== -1) {
+            context.deck.splice(index, 1);
+            context.playerHand.push(sorteada);
+            context.log(`Você comprou a carta mágica: ${sorteada.name}`);
+          }
+        } else {
+          context.log('Não há cartas mágicas restantes no deck.');
+        }
       }
     }
   },

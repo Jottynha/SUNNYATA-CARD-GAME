@@ -548,9 +548,8 @@ async function startCombatPhase() {
       }
     }
   }
-
-  render();
   log('--- Fase de Combate Encerrada ---');
+  render();
   canDrawThisTurn = true;
   opponentMagicField.forEach((carta, index) => {
     if (carta && carta.tipo === 'magia' && carta.subtipo === 'continua') {
@@ -762,6 +761,7 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
   
   function ativarEfeitosDasCartas(faseAtual, cartaUnica = null) {
     const contextoBase = {
+      deck: deck,
       fase: faseAtual,
       opponentField: opponentField,
       playerField: playerField,
@@ -773,6 +773,7 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       playerCardsOnField: playerField.filter(c => c !== null).length,
       deckSize: deck.length,
       turn: turn,
+      playerHand: playerHand,
       compra: canDrawThisTurn,
       log: (message) => log(message),
       permitirCompra: () => { canDrawThisTurn = true; },

@@ -1,3 +1,4 @@
+import { transformarCarta } from './main.js';
 export const allCards = [
   {
     name: 'Martin',
@@ -54,17 +55,39 @@ export const allCards = [
     atk: 5,
     def: 1,
     img: 'cartas/Hilda(2).png',
-    description: 'Uma jovem com poderes insanos.',
+    description: 'Uma jovem com poderes insanos. Pode se transformar ao ser equipada com um Fio de Tecelã.',
     specialEffect: 'Cura o jogador em +1 de HP.',
     tipoInvocacao: 'normal',
-    expansao: 'Hajimeru (Básico)', // Novo atributo
+    expansao: 'Hajimeru (Básico)',
     effect: (self, context) => {
       if (context.fase === 'preparacao') {
         context.log(`Jogador se cura em +1 de HP`);
         context.modifyPlayerHP(1);
+        if (self?.transformar?.condicao?.(self, context)) {
+          transformarCarta(self, context);
+        }
       }
-    }
-  },
+    },
+    transformar: {
+      condicao: (self, context) => {
+        return self.equipamentos?.some(eq => eq.name === 'Fio de Tecelã');
+      },
+      novaForma: {
+        name: 'Hilda, Despertada',
+        atk: 9,
+        def: 4,
+        equipamentos: [],
+        img: 'cartas/Hilda_Despertada.png',
+        description: 'Hilda revelou seu verdadeiro poder.',
+        specialEffect: 'Causa 2 de dano ao oponente.',
+        effect: (self, context) => {
+          context.log(`Hilda Despertada causa 2 de dano ao oponente!`);
+          context.modifyOpponentHP(-2);
+        }
+      }
+    }    
+  }
+  ,
   {
     name: 'Petrichor',
     tipo:'criatura',
@@ -324,12 +347,28 @@ export const allCards = [
     description: 'Arma de Hemolinfa',
     specialEffect: 'Aumenta o ATK da criatura equipada em +2.',
     img: 'cartas/Pyke.png',
-    expansao: 'Hajimeru (Básico)',
+    expansao: 'Hajimeru (Avançado)',
     effect: (self, context) => {
       // Aplicado ao ser equipado
       const criatura = context.alvoCampo;
       if (criatura) {
         criatura.atk += 2;
+        context.log(`${criatura.name} recebeu ${self.name} (+2 ATK).`);
+      }
+    }
+  },
+  {
+    name: 'Fio de Tecelã',
+    tipo: 'equipamento',
+    description: 'Item gerado pelas Tecelãs',
+    specialEffect: 'Aumenta a DEF da criatura equipada em +2.',
+    img: 'cartas/Fio.png',
+    expansao: 'Hajimeru (Avançado)',
+    effect: (self, context) => {
+      // Aplicado ao ser equipado
+      const criatura = context.alvoCampo;
+      if (criatura) {
+        criatura.def += 2;
         context.log(`${criatura.name} recebeu ${self.name} (+2 ATK).`);
       }
     }

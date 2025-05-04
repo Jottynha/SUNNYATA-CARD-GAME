@@ -199,16 +199,20 @@ function initDeckManager() {
     text.innerHTML = `<small>${equipamento.name}</small>`;
     equipamentoEl.appendChild(text);
   
+    const deslocamentoHorizontal = 10; // Mover para a direita
+    const deslocamentoVertical = 15; // Mover para baixo
+  
     equipamentoEl.style.position = 'absolute';
-    equipamentoEl.style.left = `${10 + eqIndex * 5}px`; // desloca em relação ao número de equipamentos
-    equipamentoEl.style.top = `${10 + eqIndex * 5}px`;
-    equipamentoEl.style.zIndex = 0;
-    equipamentoEl.style.opacity = '0.6';
+    equipamentoEl.style.left = `${10 + eqIndex * 5 + deslocamentoHorizontal}px`; // Desloca para a direita
+    equipamentoEl.style.top = `${10 + eqIndex * 5 + deslocamentoVertical}px`; // Desloca para baixo
+    equipamentoEl.style.zIndex = '-1';  // Garantir que o equipamento fique atrás da criatura
+    equipamentoEl.style.opacity = '1';  // 100% de opacidade
     equipamentoEl.style.pointerEvents = 'none';
     equipamentoEl.style.transform = 'scale(0.85)';
   
     parentSlot.appendChild(equipamentoEl);
-  }
+}
+
   
   
   
@@ -241,7 +245,6 @@ function render() {
       slot.appendChild(el);
 
       if (card.equipamentos && card.equipamentos.length > 0) {
-        console.log(card.equipamentos);
         card.equipamentos.forEach((equipamento, eqIndex) => {
           renderEquipamento(equipamento, eqIndex, slot);
         });
@@ -523,6 +526,9 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
     
       if (!criatura.equipamentos) criatura.equipamentos = [];
       criatura.equipamentos.push(selectedHandCard);
+      if (criatura?.transformar?.condicao?.(criatura, contexto)) {
+        transformarCarta(criatura, contexto);
+      }
     
       selectedHandCard.effect(selectedHandCard, contexto);
     
@@ -625,7 +631,7 @@ async function startCombatPhase() {
   ativarEfeitosDasCartas('combate');
 
   for (let i = 0; i < 3; i++) {
-    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise(resolve => setTimeout(resolve, 800));
     const attacker = playerField[i];
     const defender = opponentField[i];
 
@@ -669,7 +675,6 @@ async function startCombatPhase() {
       }
     }
   }
-  log('--- Fase de Combate Encerrada ---');
   render();
   canDrawThisTurn = true;
   opponentMagicField.forEach((carta, index) => {
@@ -691,62 +696,87 @@ async function startCombatPhase() {
 async function opponentTurn() {
   await new Promise(resolve => setTimeout(resolve, 800));
 
-  // Comprar carta se houver espaço no campo de magia ou criatura
   if (opponentDeck.length > 0) {
     const drawnCard = opponentDeck.pop();
 
+    const context = {
+      fase: 'preparacao',
+      modifyPlayerHP: value => {
+        playerHP += value;
+        if (playerHP < 0) playerHP = 0;
+      },
+      modifyOpponentHP: value => {
+        opponentHP += value;
+        if (opponentHP < 0) opponentHP = 0;
+      },
+      log: msg => log(msg),
+    };
+
+    const flippedContext = {
+      ...context,
+      modifyPlayerHP: context.modifyOpponentHP,
+      modifyOpponentHP: context.modifyPlayerHP
+    };
+
     if (drawnCard.tipo === 'magia') {
-      // Verifica se há espaço no campo de magia
-      const magicSlotIndex = opponentMagicField.findIndex(slot => slot === null);
-      if (magicSlotIndex !== -1 && typeof drawnCard.effect === 'function') {
-        // Verifica se a magia pode ser ativada nesta fase
-        const context = {
-          fase: 'preparacao',
-          modifyPlayerHP: value => {
-            playerHP += value;
-            if (playerHP < 0) playerHP = 0;
-          },
-          modifyOpponentHP: value => {
-            opponentHP += value;
-            if (opponentHP < 0) opponentHP = 0;
-          },
-          log: msg => log(msg),
-        };
-
-        // Inverter o contexto: como o bot é quem joga, ele é o "jogador"
-        const flippedContext = {
-          ...context,
-          modifyPlayerHP: context.modifyOpponentHP,
-          modifyOpponentHP: context.modifyPlayerHP
-        };
-
-        drawnCard.effect(drawnCard, flippedContext);
-        opponentMagicField[magicSlotIndex] = drawnCard;
-        log(`Oponente ativou a magia ${drawnCard.name}`);
-        render();
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Delay após uso da magia
+      // Magia contínua ocupa slot; imediata vai para o cemitério
+      if (drawnCard.subtipo === 'continua') {
+        const magicSlotIndex = opponentMagicField.findIndex(slot => slot === null);
+        if (magicSlotIndex !== -1) {
+          opponentMagicField[magicSlotIndex] = drawnCard;
+          log(`Oponente ativou a magia contínua ${drawnCard.name}`);
+          render();
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } else {
+        if (typeof drawnCard.effect === 'function') {
+          drawnCard.effect(drawnCard, flippedContext);
+          log(`Oponente usou a magia ${drawnCard.name}`);
+          grave.push(drawnCard);
+          render();
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
-    } else {
-      // Se for criatura, invocação normal segue como antes:
+    } else if (drawnCard.tipo === 'equipamento') {
+      // Equipar criatura aliada se possível
+      const targetIndex = opponentField.findIndex(c => c && c.tipo === 'criatura');
+      if (targetIndex !== -1) {
+        const creature = opponentField[targetIndex];
+        if (!creature.equipamentos) creature.equipamentos = [];
+        creature.equipamentos.push(drawnCard);
+
+        if (typeof drawnCard.effect === 'function') {
+          drawnCard.effect(drawnCard, { ...flippedContext, alvoCampo: creature });
+        }
+
+        log(`Oponente equipou ${drawnCard.name} em ${creature.name}`);
+
+        // Verifica transformação
+        if (creature?.transformar?.condicao?.(creature, flippedContext)) {
+          transformarCarta(creature, flippedContext);
+        }
+
+        grave.push(drawnCard);
+        render();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        // Não há criatura para equipar: carta descartada
+        log(`Oponente não tinha criatura para equipar ${drawnCard.name}, carta descartada.`);
+        grave.push(drawnCard);
+      }
+    } else if (drawnCard.tipo === 'criatura') {
       const emptyIndices = opponentField
         .map((c, i) => (c === null ? i : -1))
         .filter(i => i !== -1);
 
       if (emptyIndices.length > 0) {
-        let bestSlot = -1;
-        let canDestroy = false;
-
+        let bestSlot = emptyIndices[0];
         for (let slot of emptyIndices) {
           const playerCard = playerField[slot];
           if (playerCard && drawnCard.atk >= playerCard.def) {
             bestSlot = slot;
-            canDestroy = true;
             break;
           }
-        }
-
-        if (bestSlot === -1) {
-          bestSlot = emptyIndices[0];
         }
 
         opponentField[bestSlot] = drawnCard;
@@ -757,14 +787,14 @@ async function opponentTurn() {
     }
   }
 
+  // Ataques
   for (let i = 0; i < 3; i++) {
     const attacker = opponentField[i];
     const defender = playerField[i];
 
     if (attacker && defender) {
       log(`Oponente (${attacker.name}) ataca seu ${defender.name}`);
-      await new Promise(resolve => setTimeout(resolve, 600)); // Delay antes do ataque
-
+      await new Promise(resolve => setTimeout(resolve, 600));
       await animateAttack('opponent-field', i, 'player-field', i);
 
       defender.def -= attacker.atk;
@@ -774,22 +804,21 @@ async function opponentTurn() {
         const defenderCard = defenderSlot.querySelector('.card');
         if (defenderCard) {
           defenderCard.classList.add('destroyed');
-          await new Promise(resolve => setTimeout(resolve, 1200)); // Delay da animação de destruição
+          await new Promise(resolve => setTimeout(resolve, 1200));
         }
         grave.push(defender);
-        log(`${defender.name} foi destruído!`);
         playerField[i] = null;
+        log(`${defender.name} foi destruído!`);
       } else {
         log(`${defender.name} sobreviveu com DEF ${defender.def}`);
       }
 
     } else if (attacker && !defender) {
       log(`${attacker.name} ataca você diretamente!`);
-      await new Promise(resolve => setTimeout(resolve, 600)); // Delay antes do ataque direto
-
+      await new Promise(resolve => setTimeout(resolve, 600));
       await animateAttack('opponent-field', i);
-
       playerHP -= attacker.atk;
+
       if (playerHP <= 0) {
         playerHP = 0;
         render();
@@ -801,27 +830,30 @@ async function opponentTurn() {
       }
     }
 
-    await new Promise(resolve => setTimeout(resolve, 600)); // Delay entre ataques
+    await new Promise(resolve => setTimeout(resolve, 600));
   }
 
   render();
   log('--- Turno do Oponente Encerrado ---');
+
   invocacaoNormalFeita = false;
+
   magicField.forEach((carta, index) => {
     if (carta && carta.tipo === 'magia' && carta.subtipo === 'continua') {
       if (carta.turnosRestantes <= 0) {
         log(`${carta.name} se esgotou e foi enviada ao cemitério.`);
         grave.push(carta);
         magicField[index] = null;
-        render(); 
+        render();
         return;
       }
       ativarEfeitosDasCartas('preparacao', carta);
       carta.turnosRestantes--;
       render();
     }
-  });  
+  });
 }
+
 
   
   
@@ -996,6 +1028,25 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       }
     });
   }
+
+  export function transformarCarta(carta, context) {
+    const novaForma = carta.transformar?.novaForma;
+    if (!novaForma) return;
+  
+    // Animação simples (pode ser melhor com CSS)
+    const slotIndex = playerField.indexOf(carta);
+    const slotElement = document.querySelectorAll('#player-field .slot')[slotIndex];
+    slotElement.classList.add('transformando');
+  
+    setTimeout(() => {
+      // Atualiza propriedades da carta
+      Object.assign(carta, novaForma);
+      slotElement.classList.remove('transformando');
+      context.log(`${carta.name} se transformou!`);
+      render();
+    }, 1000); // Duração da animação
+  }
+  
 
   function abrirModalEscolhaDeEfeito(carta, contexto) {
   const modal = document.getElementById('effect-choice-modal');

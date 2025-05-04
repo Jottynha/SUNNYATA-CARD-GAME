@@ -84,11 +84,19 @@
         <div class="slot" data-pos="0"></div>
         <div class="slot" data-pos="1"></div>
         <div class="slot" data-pos="2"></div>
+        <div class="fusion-row" id="opponent-fusion-slot">
+          <div class="slot especial" data-pos="3" title="Slot Especial: Fusão / Invocação"></div>
+        </div>
       </div>
-      <div class="field-row" id="player-field">
-        <div class="slot" data-pos="0"></div>
-        <div class="slot" data-pos="1"></div>
-        <div class="slot" data-pos="2"></div>
+      <div class="field-row" id="player-field-container">
+        <div class="field-row" id="player-field">
+          <div class="slot" data-pos="0"></div>
+          <div class="slot" data-pos="1"></div>
+          <div class="slot" data-pos="2"></div>
+        </div>
+        <div class="fusion-row" id="fusion-slot">
+          <div class="slot especial" data-pos="3" title="Slot Especial: Fusão / Invocação"></div>
+        </div>
       </div>
       <div class="field-row" id="magic-field">
         <div class="magic-slot slot" data-pos="0"></div>
@@ -115,6 +123,7 @@
   <div id="controls">
     <button id="draw-btn">Comprar Carta</button>
     <button id="end-prep-btn">Encerrar Preparação</button>
+    <div id="fusao-opcoes" style="display:none; margin-top:10px;"></div>
   </div>
   <div id="card-details-modal" class="modal">
     <div class="modal-content" id="card-details-content"></div>

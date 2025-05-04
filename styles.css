@@ -562,5 +562,34 @@ h1 { margin-top: 20px; }
 }
 
 .secao-regra p {
+  color: #000000;
   font-size: 16px;
+}
+
+.fusion-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.slot.especial {
+  width: 100px;
+  height: 140px;
+  border: 2px solid #d4af37;
+  background-color: rgba(255, 255, 150, 0.25);
+  box-shadow: 0 0 10px rgba(255, 230, 100, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+#player-field-container {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Espaçamento entre slots normais e o de fusão */
+}
+
+.fusion-row {
+  display: flex;
 }

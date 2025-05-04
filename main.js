@@ -3,8 +3,10 @@ import { allCards } from './cards.js';
 // Variáveis globais
 let playerField = [null, null, null]; // Slots do jogador
 const magicField = [null, null];
+let fusionField = null;
 let opponentField = [null, null, null]; // Slots do oponente
 const opponentMagicField = [null, null];
+let opponentFusionField = null;
 let selectedCard = null; // Carta selecionada para combate
 let playerHP = 20;
 let opponentHP = 20;
@@ -85,6 +87,31 @@ function initDeckManager() {
 
   document.getElementById('start-game-btn').addEventListener('click', startGame);
 }
+
+function verificarPossibilidadesDeFusao(cartaSelecionada) {
+  if (!cartaSelecionada.fusoesPossiveis) return;
+
+  const candidatos = [...playerHand, ...playerField].filter(carta =>
+    carta && carta !== cartaSelecionada &&
+    cartaSelecionada.fusoesPossiveis.some(f => f.com === carta.name)
+  );
+
+  if (candidatos.length > 0) {
+    const fusoesDiv = document.getElementById('fusao-opcoes');
+    fusoesDiv.innerHTML = ''; // Limpa
+
+    candidatos.forEach(cartaFusionavel => {
+      const fusao = cartaSelecionada.fusoesPossiveis.find(f => f.com === cartaFusionavel.name);
+      const btn = document.createElement('button');
+      btn.textContent = `Fundir com ${cartaFusionavel.name}`;
+      btn.onclick = () => realizarFusao(cartaSelecionada, cartaFusionavel, fusao.resultado);
+      fusoesDiv.appendChild(btn);
+    });
+
+    fusoesDiv.style.display = 'block';
+  }
+}
+
 
 
  
@@ -306,6 +333,26 @@ function render() {
 
     handContainer.appendChild(el);
   });
+
+  // Render - Slot de Fusão
+  const fusionSlotEl = document.querySelector('#fusion-slot .slot');
+  fusionSlotEl.innerHTML = '';
+
+  if (fusionField) {
+    const el = fusionField.tipo === 'magia'
+      ? createMagicCardElement(fusionField)
+      : createCardElement(fusionField);
+
+    fusionSlotEl.appendChild(el);
+
+    if (fusionField.equipamentos && fusionField.equipamentos.length > 0) {
+      fusionField.equipamentos.forEach((equipamento, eqIndex) => {
+        renderEquipamento(equipamento, eqIndex, fusionSlotEl);
+      });
+    }
+  }
+
+
   if (opponentHP <= 0) {
     opponentHP = 0;
     setTimeout(() => {
@@ -545,6 +592,119 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
   });
 });
 
+// Seleciona o Slot de Fusão
+const fusionSlot = document.querySelector('#fusion-slot .slot');
+
+// Função para mostrar as cartas de fusão possíveis
+function mostrarOpcoesDeFusao(candidatos) {
+  // Exibe as opções de fusão no campo ou cria um modal
+  const fusionOptionsContainer = document.createElement('div');
+  fusionOptionsContainer.id = 'fusion-options-container';
+  
+  candidatos.forEach(carta => {
+    const cartaOption = document.createElement('button');
+    cartaOption.className = 'fusion-option';
+    cartaOption.innerText = carta.name;
+    cartaOption.addEventListener('click', () => {
+      executarFusao(carta);
+      document.body.removeChild(fusionOptionsContainer); // Fecha as opções
+    });
+    fusionOptionsContainer.appendChild(cartaOption);
+  });
+
+  document.body.appendChild(fusionOptionsContainer);
+}
+
+// Função para executar a fusão
+function executarFusao(cartaFusionavel) {
+  const fusao = selectedHandCard.fusoesPossiveis.find(f => f.com === cartaFusionavel.name);
+  const resultado = fusao.resultado;
+
+  // Remove as cartas de origem (mão e campo)
+  [selectedHandCard, cartaFusionavel].forEach(carta => {
+    const idxMao = playerHand.indexOf(carta);
+    if (idxMao !== -1) playerHand.splice(idxMao, 1);
+    
+    const idxCampo = playerField.indexOf(carta);
+    if (idxCampo !== -1) playerField[idxCampo] = null;
+  });
+
+  // Coloca a carta fusionada no campo
+  fusionField = resultado;
+
+  if (!fusionField.efeitoAtivadoPreparacao) {
+    ativarEfeitosDasCartas('preparacao', fusionField);
+    fusionField.efeitoAtivadoPreparacao = true;
+  }
+
+  log(`${resultado.name} foi fundido a partir de ${selectedHandCard.name} e ${cartaFusionavel.name} no Slot Especial!`);
+  selectedHandCard = null;
+  render(); // Re-renderiza o jogo com a nova carta fusionada
+}
+
+// Lógica de clique no Slot de Fusão
+fusionSlot.addEventListener('click', () => {
+  if (!selectedHandCard) {
+    log('Nenhuma carta selecionada!');
+    return;
+  }
+
+  const isEspecial = selectedHandCard.tipoInvocacao === 'especial';
+  const isCriatura = selectedHandCard.tipo === 'criatura' || selectedHandCard.tipo === 'fusão';
+
+  // Verifica se o slot está disponível
+  if (fusionField) {
+    log('O slot especial já está ocupado!');
+    return;
+  }
+
+  // Verifica se a carta selecionada tem fusão possível
+  if (selectedHandCard.fusoesPossiveis) {
+    // Filtra as cartas que podem ser fundidas
+    const candidatos = [...playerHand, ...playerField].filter(carta =>
+      carta &&
+      carta !== selectedHandCard &&
+      selectedHandCard.fusoesPossiveis.some(f => f.com === carta.name)
+    );
+
+    if (candidatos.length === 0) {
+      log('Não há cartas compatíveis para fusão.');
+      return;
+    }
+
+    // Mostra as opções de fusão
+    mostrarOpcoesDeFusao(candidatos);
+    return;
+  }
+
+  // Caso contrário, realiza invocação especial normal
+  if (!isEspecial || !isCriatura) {
+    log('Apenas criaturas com invocação especial ou fusão podem ser colocadas neste slot!');
+    return;
+  }
+
+  if (selectedHandCard.podeSerInvocada && !selectedHandCard.podeSerInvocada(playerField)) {
+    log('Condição para invocação especial não foi satisfeita!');
+    return;
+  }
+
+  fusionField = selectedHandCard;
+  const i = playerHand.indexOf(selectedHandCard);
+  if (i !== -1) playerHand.splice(i, 1);
+  selectedHandCard = null;
+
+  if (!fusionField.efeitoAtivadoPreparacao) {
+    ativarEfeitosDasCartas('preparacao', fusionField);
+    fusionField.efeitoAtivadoPreparacao = true;
+  }
+
+  log(`${fusionField.name} foi invocada no Slot Especial!`);
+  render();
+});
+
+
+
+
 document.querySelectorAll('#magic-field .magic-slot').forEach((slot, index) => {
   slot.addEventListener('click', () => {
     if (!selectedHandCard) {
@@ -663,6 +823,48 @@ async function startCombatPhase() {
 
       await animateAttack('player-field', i);
 
+      opponentHP -= attacker.atk;
+      if (opponentHP <= 0) {
+        opponentHP = 0;
+        render();
+        setTimeout(() => {
+          alert('Você venceu!');
+          restartGame();
+        }, 100);
+        return;
+      }
+
+    }
+    // Combate com a carta do Fusion Field
+
+  }
+  if (fusionField) {
+    const attacker = fusionField;
+    const defender = opponentFusionField || null;
+  
+    log(`${attacker.name} do Slot Especial ataca${defender ? ` ${defender.name}` : ' diretamente'}!`);
+    
+    await animateAttack('fusion-slot', 0, defender ? 'opponent-fusion-slot' : null, 0);
+  
+    if (defender) {
+      defender.def -= attacker.atk;
+  
+      if (defender.def <= 0) {
+        const defenderSlot = document.querySelector('#opponent-fusion-slot .slot');
+        const defenderCard = defenderSlot.querySelector('.card');
+        if (defenderCard) {
+          defenderCard.classList.add('destroyed');
+          await new Promise(resolve => setTimeout(resolve, 600));
+        }
+  
+        grave.push(defender);
+        opponentFusionField = null;
+        log(`${defender.name} foi destruído no Slot Especial!`);
+      } else {
+        log(`${defender.name} sobreviveu com DEF ${defender.def}`);
+      }
+  
+    } else {
       opponentHP -= attacker.atk;
       if (opponentHP <= 0) {
         opponentHP = 0;

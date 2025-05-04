@@ -140,7 +140,29 @@ export const allCards = [
         self.def += 1;
         context.log(`${self.name} se fortalece! +1 DEF`);
       }
-    }
+    },
+    fusoesPossiveis: [
+      {
+        com: 'Petrichor',
+        resultado: {
+          name: 'Heliorichor',
+          tipo: 'criatura',
+          subtipo: 'fusão',
+          atk: 6,
+          def: 4,
+          img: 'cartas/Heliorichor.png',
+          description: 'A fusão da velocidade e sabedoria.',
+          specialEffect: 'Recebe +2 de DEF se não houver oponentes no campo.',
+          tipoInvocacao: 'especial',
+          effect: (self, context) => {
+            if (context.enemiesOnField === 0) {
+              self.def += 2;
+              context.log(`${self.name} recebeu +2 de DEF pela fusão em campo vazio!`);
+            }
+          }
+        }
+      }
+    ]
   },
   {
     name: 'Heimdall',

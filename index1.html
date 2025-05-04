@@ -7,6 +7,55 @@
 </head>
 <body>
   <h1>Sunnycarta</h1>
+  <!-- Botão para abrir as regras -->
+  <button id="btn-regras" class="btn-regras">Regras do Jogo</button>
+
+  <!-- Modal de Regras -->
+  <div id="modal-regras" class="modal">
+    <div class="modal-conteudo">
+      <span id="fechar-modal" class="fechar">&times;</span>
+      <div class="secao-regra">
+        <h3>Objetivo do Jogo</h3>
+        <p>Reduzir os Pontos de Vida (HP) do oponente a 0.</p>
+      </div>
+      
+      <div class="secao-regra">
+        <h3>Criaturas</h3>
+        <ul>
+          <p>Cada jogador pode invocar <strong>uma criatura por turno</strong>.</p>
+          <p>Criaturas atacam diretamente o oponente ou uma criatura no mesmo slot.</p>
+          <p>Criaturas podem ter <em>efeitos especiais</em> ativados automaticamente em fases específicas.</p>
+        </ul>
+      </div>
+      
+      <div class="secao-regra">
+        <h3>Magias</h3>
+        <ul>
+          <p><strong>Magias imediatas</strong> ativam efeitos instantâneos e vão para o cemitério.</p>
+          <p><strong>Magias contínuas</strong> permanecem no campo por turnos limitados.</p>
+        </ul>
+      </div>
+      
+      <div class="secao-regra">
+        <h3>Equipamentos</h3>
+        <ul>
+          <p>Equipamentos são anexados a criaturas para fortalecê-las.</p>
+          <p>Alguns equipamentos podem ativar <em>transformações especiais</em>.</p>
+        </ul>
+      </div>
+      
+      <div class="secao-regra">
+        <h3>Mecânicas Especiais</h3>
+        <ul>
+          <p><strong>Transformações</strong> ocorrem quando condições específicas são atendidas.</p>
+          <p>Existem 3 slots no campo para <strong>criaturas</strong> e 2 para <strong>magias</strong>.</p>
+          <p>Algumas cartas têm condições únicas que afetam o campo, o cemitério ou o HP dos jogadores.</p>
+        </ul>
+      </div>
+      
+    </div>
+  </div>
+
   <div id="selected-deck"></div>
   <p id="deck-count">Cartas no deck: 0/20</p>
   <div id="deck-manager" class="deck-manager">

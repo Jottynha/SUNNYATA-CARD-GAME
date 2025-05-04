@@ -1187,5 +1187,20 @@ document.getElementById('player-grave').addEventListener('click', () => showCard
 document.getElementById('opponent-deck').addEventListener('click', () => showCards('Deck (Oponente)', opponentDeck));
 document.getElementById('opponent-grave').addEventListener('click', () => showCards('Cemitério (Oponente)', opponentGrave));
   
+document.getElementById('btn-regras').addEventListener('click', () => {
+  document.getElementById('modal-regras').style.display = 'block';
+});
+
+document.getElementById('fechar-modal').addEventListener('click', () => {
+  document.getElementById('modal-regras').style.display = 'none';
+});
+
+window.addEventListener('click', (event) => {
+  const modal = document.getElementById('modal-regras');
+  if (event.target === modal) {
+    modal.style.display = 'none';
+  }
+});
+
 // Inicializa o jogo
 window.onload = () => initDeckManager();

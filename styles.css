@@ -459,3 +459,11 @@ h1 { margin-top: 20px; }
 #effect-buttons button:hover {
   background-color: #45a049;
 }
+
+.card.equipamento-render {
+  width: 90px;
+  height: 125px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+

@@ -68,9 +68,12 @@ function initDeckManager() {
       }
 
       // Escolhe a função de criação com base no tipo da carta
-      const cardElement = card.tipo === 'magia'
-        ? createMagicCardElement(card)
-        : createCardElement(card);
+      const cardElement =
+        card.tipo === 'magia'
+          ? createMagicCardElement(card)
+          : card.tipo === 'equipamento'
+          ? createEquipamentCardElement(card)
+          : createCardElement(card);
 
       cardElement.classList.add('card');
       cardElement.addEventListener('click', () => selectCard(card));
@@ -152,6 +155,64 @@ function initDeckManager() {
       alert(`Você precisa selecionar exatamente ${MAX_DECK_SIZE} cartas!`);
     }
   }
+  function createEquipamentCardElement(card) {
+    const cardElement = document.createElement('div');
+    cardElement.classList.add('card', 'equipamento');
+  
+    // Imagem do equipamento
+    const img = document.createElement('img');
+    img.src = card.img;
+    img.alt = card.name;
+    img.classList.add('card-image');
+    cardElement.appendChild(img);
+  
+    // Texto com nome e efeito
+    const text = document.createElement('div');
+    text.classList.add('card-text');
+    text.innerHTML = `<strong>${card.name}</strong><br><small>${card.description || 'Equipamento'}</small>`;
+    cardElement.appendChild(text);
+  
+    cardElement.draggable = true;
+  
+    // Detalhes no botão direito
+    cardElement.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showCardDetailsModal(card);
+    });
+  
+    return cardElement;
+  }
+
+  function renderEquipamento(equipamento, eqIndex, parentSlot) {
+    const equipamentoEl = document.createElement('div');
+    equipamentoEl.classList.add('card', 'equipamento-render');
+  
+    const img = document.createElement('img');
+    img.src = equipamento.img;
+    img.alt = equipamento.name;
+    img.classList.add('card-image');
+    equipamentoEl.appendChild(img);
+  
+    // Nome pequeno ou icônico se quiser
+    const text = document.createElement('div');
+    text.classList.add('card-text');
+    text.innerHTML = `<small>${equipamento.name}</small>`;
+    equipamentoEl.appendChild(text);
+  
+    equipamentoEl.style.position = 'absolute';
+    equipamentoEl.style.left = `${10 + eqIndex * 5}px`; // desloca em relação ao número de equipamentos
+    equipamentoEl.style.top = `${10 + eqIndex * 5}px`;
+    equipamentoEl.style.zIndex = 0;
+    equipamentoEl.style.opacity = '0.6';
+    equipamentoEl.style.pointerEvents = 'none';
+    equipamentoEl.style.transform = 'scale(0.85)';
+  
+    parentSlot.appendChild(equipamentoEl);
+  }
+  
+  
+  
+  
   
 
 
@@ -171,11 +232,26 @@ function render() {
   playerSlots.forEach((slot, index) => {
     slot.innerHTML = '';
     const card = playerField[index];
+  
     if (card) {
-      const el = card.tipo === 'magia' ? createMagicCardElement(card) : createCardElement(card);
+      const el = card.tipo === 'magia'
+        ? createMagicCardElement(card)
+        : createCardElement(card);
+  
       slot.appendChild(el);
+  
+      const existingEquipamentos = slot.querySelectorAll('.equipamento-card');
+    existingEquipamentos.forEach(e => e.remove());
+
+    if (card.equipamentos && card.equipamentos.length > 0) {
+      card.equipamentos.forEach((equipamento, eqIndex) => {
+        const equipEl = renderEquipamento(equipamento, eqIndex, slot);
+        slot.appendChild(equipEl);
+      });
+    }
     }
   });
+  
 
   // Monstros - oponente
   opponentSlots.forEach((slot, index) => {
@@ -212,7 +288,12 @@ function render() {
   // Mão
   handContainer.innerHTML = '';
   playerHand.forEach((card, i) => {
-    const el = card.tipo === 'magia' ? createMagicCardElement(card) : createCardElement(card);
+    const el =
+        card.tipo === 'magia'
+          ? createMagicCardElement(card)
+          : card.tipo === 'equipamento'
+          ? createEquipamentCardElement(card)
+          : createCardElement(card);
 
     if (card === lastDrawnCard) {
       el.classList.add('ultima-carta-comprada');
@@ -371,50 +452,93 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
       return;
     }
 
-    if (selectedHandCard.tipo !== 'criatura') {
-      log('Apenas cartas de criatura podem ser colocadas neste slot!');
-      return;
-    }
+    if (selectedHandCard.tipo === 'criatura') {
+      // Invocação de criatura
+      if (playerField[index]) {
+        log('Este slot já está ocupado!');
+        return;
+      }
     
-
-    if (playerField[index]) {
-      log('Este slot já está ocupado!');
+      const isEspecial = selectedHandCard.tipoInvocacao === 'especial';
+    
+      if (!isEspecial && invocacaoNormalFeita) {
+        log('Você já fez uma invocação normal neste turno!');
+        return;
+      }
+    
+      if (isEspecial && selectedHandCard.podeSerInvocada && !selectedHandCard.podeSerInvocada(playerField)) {
+        log('Condição para invocação especial não foi satisfeita!');
+        return;
+      }
+    
+      if (isEspecial) {
+        log('Você realizou uma invocação especial!');
+      }
+    
+      // Executa a invocação
+      playerField[index] = selectedHandCard;
+      const i = playerHand.indexOf(selectedHandCard);
+      if (i !== -1) playerHand.splice(i, 1);
+      selectedHandCard = null;
+    
+      if (!isEspecial) invocacaoNormalFeita = true;
+    
+      if (!playerField[index].efeitoAtivadoPreparacao) {
+        ativarEfeitosDasCartas('preparacao', playerField[index]);
+        playerField[index].efeitoAtivadoPreparacao = true;
+      }
+    
+      animacaoEntradaCampo = true;
+      render();
+      animacaoEntradaCampo = false;
       return;
     }
+    if (selectedHandCard.tipo === 'equipamento') {
+      const criatura = playerField[index];
+    
+      if (!criatura || criatura.tipo !== 'criatura') {
+        log('Você deve escolher uma criatura aliada para equipar!');
+        return;
+      }
+    
+      // Equipar
+      const contexto = {
+        deck,
+        fase: 'preparacao',
+        opponentField,
+        playerField,
+        playerHP,
+        opponentHP,
+        opponentGrave,
+        playerGrave: grave,
+        enemiesOnField: opponentField.filter(c => c !== null).length,
+        playerCardsOnField: playerField.filter(c => c !== null).length,
+        deckSize: deck.length,
+        turn,
+        playerHand,
+        compra: canDrawThisTurn,
+        log,
+        permitirCompra: () => { canDrawThisTurn = true; },
+        modifyPlayerHP: (delta) => { playerHP += delta; },
+        modifyOpponentHP: (delta) => { opponentHP += delta; },
+        alvoCampo: criatura,
+      };
+    
+      if (!criatura.equipamentos) criatura.equipamentos = [];
+      criatura.equipamentos.push(selectedHandCard);
+    
+      selectedHandCard.effect(selectedHandCard, contexto);
+    
+      const i = playerHand.indexOf(selectedHandCard);
+      if (i !== -1) playerHand.splice(i, 1);
+    
+      log(`${criatura.name} foi equipada com ${selectedHandCard.name}!`);
 
-    const isEspecial = selectedHandCard.tipoInvocacao === 'especial';
-
-    // Se for invocação normal, checar se já foi feita
-    if (!isEspecial && invocacaoNormalFeita) {
-      log('Você já fez uma invocação normal neste turno!');
+      selectedHandCard = null;
+      render();
       return;
     }
-    if (selectedHandCard.tipoInvocacao === 'especial' && selectedHandCard.podeSerInvocada && !selectedHandCard.podeSerInvocada(playerField)) {
-      log('Condição para invocação especial não foi satisfeita!');
-      return;
-    }
-    if (isEspecial) {
-      log('Você realizou uma invocação especial!');
-    }
-    // Executa a invocação
-    playerField[index] = selectedHandCard;
-    const i = playerHand.indexOf(selectedHandCard);
-    if (i !== -1) playerHand.splice(i, 1); // remove da mão
-    selectedHandCard = null;
-
-    // Marca que a invocação normal foi feita
-    if (!isEspecial) {
-      invocacaoNormalFeita = true;
-    }
-
-    // Ativar efeito de preparação uma única vez por carta
-    if (!playerField[index].efeitoAtivadoPreparacao) {
-      ativarEfeitosDasCartas('preparacao', playerField[index]);
-      playerField[index].efeitoAtivadoPreparacao = true;
-    }
-    animacaoEntradaCampo = true; 
-    render();
-    animacaoEntradaCampo = false;
+        
   });
 });
 
@@ -780,6 +904,37 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       modifyPlayerHP: (delta) => { playerHP += delta; },
       modifyOpponentHP: (delta) => { opponentHP += delta; },
     };
+
+    if (cartaUnica && cartaUnica.tipo === 'equipamento') {
+      log(`Selecione uma criatura aliada para equipar ${cartaUnica.name}.`);
+    
+      const slots = document.querySelectorAll('#player-field .slot');
+    
+      const handleClick = (event) => {
+        const index = Array.from(slots).indexOf(event.currentTarget);
+        const criatura = playerField[index];
+    
+        if (!criatura || criatura.tipo !== 'criatura') {
+          log('Você deve escolher uma criatura aliada.');
+          return;
+        }
+    
+        slots.forEach(slot => slot.removeEventListener('click', handleClick));
+    
+        const contexto = {
+          ...contextoBase,
+          alvoCampo: criatura
+        };
+    
+        cartaUnica.effect(cartaUnica, contexto);
+        grave.push(cartaUnica); // ou grave apenas quando a criatura for destruída?
+        render();
+      };
+    
+      slots.forEach(slot => slot.addEventListener('click', handleClick));
+      return;
+    }
+    
   
     // Se a carta precisar de alvo
     if (cartaUnica && cartaUnica.alvo && (cartaUnica.alvo === 'campoInimigo' || cartaUnica.alvo === 'campoAliado')) {
@@ -867,62 +1022,85 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
 
   
   
-  function showCardDetailsModal(card) {
-    const modal = document.getElementById('card-details-modal');
-    const modalContent = document.getElementById('card-details-content');
-  
-    let tipoInvocacao = '';
-    let invocacaoClass = '';
-  
-    if (card.tipoInvocacao === 'ambos') {
-      tipoInvocacao = 'Normal e Especial';
-      invocacaoClass = 'invocacao-especial';
-    } else if (card.tipoInvocacao === 'especial') {
-      tipoInvocacao = 'Especial';
-      invocacaoClass = 'invocacao-especial';
-    } else {
-      tipoInvocacao = 'Normal';
-      invocacaoClass = '';
-    }
-    function formatarAlvo(alvo) {
-      switch (alvo) {
-        case 'oponente': return 'Oponente';
-        case 'campoInimigo': return 'Campo do Oponente';
-        case 'campoAliado': return 'Seu Campo';
-        case 'jogador': return 'Você';
-        case 'todos': return 'Todos os Jogadores';
-        default: return 'Não especificado';
-      }
-    }
-  
-    if (card.tipo === 'magia') {
-      // Exibição personalizada para cartas de magia
-      modalContent.innerHTML = `
-        <h2>${card.name}</h2>
-        <img src="${card.img}" alt="${card.name}" class="modal-card-img">
-        <p><strong>Tipo:</strong> Magia ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
-        <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
-        <p><strong>Alvo:</strong> ${formatarAlvo(card.alvo)}</p>
-        <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
-        <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
-      `;
-    } else {
-      // Exibição padrão para criaturas e outras cartas
-      modalContent.innerHTML = `
-        <h2>${card.name}</h2>
-        <img src="${card.img}" alt="${card.name}" class="modal-card-img">
-        <p><strong>Tipo:</strong> Criatura ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
-        <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
-        <p><strong>ATK:</strong> ${card.atk}</p>
-        <p><strong>DEF:</strong> ${card.def}</p>
-        <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
-        <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
-        <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
-      `;
-    }
-  
-    modal.style.display = 'block';
+function showCardDetailsModal(card) {
+  const modal = document.getElementById('card-details-modal');
+  const modalContent = document.getElementById('card-details-content');
+
+  let tipoInvocacao = '';
+  let invocacaoClass = '';
+
+  if (card.tipoInvocacao === 'ambos') {
+    tipoInvocacao = 'Normal e Especial';
+    invocacaoClass = 'invocacao-especial';
+  } else if (card.tipoInvocacao === 'especial') {
+    tipoInvocacao = 'Especial';
+    invocacaoClass = 'invocacao-especial';
+  } else {
+    tipoInvocacao = 'Normal';
+    invocacaoClass = '';
   }
+
+  function formatarAlvo(alvo) {
+    switch (alvo) {
+      case 'oponente': return 'Oponente';
+      case 'campoInimigo': return 'Campo do Oponente';
+      case 'campoAliado': return 'Seu Campo';
+      case 'jogador': return 'Você';
+      case 'todos': return 'Todos os Jogadores';
+      default: return 'Não especificado';
+    }
+  }
+
+  let html = `
+    <h2>${card.name}</h2>
+    <img src="${card.img}" alt="${card.name}" class="modal-card-img">
+  `;
+
+  if (card.tipo === 'magia') {
+    html += `
+      <p><strong>Tipo:</strong> Magia ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
+      <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
+      <p><strong>Alvo:</strong> ${formatarAlvo(card.alvo)}</p>
+      <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
+      <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
+    `;
+  } else if (card.tipo === 'equipamento') {
+    html += `
+      <p><strong>Tipo:</strong> Equipamento</p>
+      <p><strong>Efeito:</strong> ${card.specialEffect || 'Nenhum efeito'}</p>
+      <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
+      <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
+    `;
+  } else {
+    // Criatura ou outro tipo padrão
+    html += `
+      <p><strong>Tipo:</strong> Criatura ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
+      <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
+      <p><strong>ATK:</strong> ${card.atk}</p>
+      <p><strong>DEF:</strong> ${card.def}</p>
+      <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
+      <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
+      <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
+    `;
+
+    // Se tiver equipamentos anexados, exibe-os
+    if (card.equipamentos && card.equipamentos.length > 0) {
+      html += `<hr><h3>Equipamentos Anexados:</h3>`;
+      card.equipamentos.forEach(equip => {
+        html += `
+          <div class="equipamento-anexado">
+            <img src="${equip.img}" alt="${equip.name}" class="mini-card-img">
+            <p><strong>${equip.name}</strong><br>${equip.specialEffect || 'Sem efeito'}</p>
+          </div>
+        `;
+      });
+    }
+  }
+
+  modalContent.innerHTML = html;
+  modal.style.display = 'block';
+}
+
   
   function capitalize(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);

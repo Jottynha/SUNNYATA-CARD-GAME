@@ -289,7 +289,36 @@ export const allCards = [
         context.opponentGrave.push(alvoCampo);
       }
     }
+  },
+  {
+    name: 'Crânio',
+    tipo: 'criatura',
+    subtipo: 'NPC',
+    atk: 4,
+    def: 2,
+    img: 'cartas/Cranio.png',
+    description: 'Crânio pode curar ou atacar com magia.',
+    specialEffect: 'Escolha entre curar 2 de HP ou causar 2 de dano ao oponente.',
+    tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Básico)',
+    effectOptions: [
+      {
+        label: 'Curar 2 de HP',
+        execute: (self, context) => {
+          context.modifyPlayerHP(2);
+          context.log(`${self.name} cura o jogador em +2 de HP.`);
+        }
+      },
+      {
+        label: 'Causar 2 de dano',
+        execute: (self, context) => {
+          context.modifyOpponentHP(-2);
+          context.log(`${self.name} causa 2 de dano ao oponente.`);
+        }
+      }
+    ]
   }
+  
   
   
 ];

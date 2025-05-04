@@ -826,9 +826,16 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
     if (cartaUnica) {
       if (typeof cartaUnica.effect === 'function') {
         cartaUnica.effect(cartaUnica, contextoBase);
+        return;
       }
-      return;
+    
+      if (Array.isArray(cartaUnica.effectOptions)) {
+        // Abre o modal para escolha
+        abrirModalEscolhaDeEfeito(cartaUnica, contextoBase);
+        return;
+      }
     }
+    
   
     // Executa efeitos de todas as cartas no campo (sem alvo)
     [...playerField, ...magicField, ...opponentField].forEach(carta => {
@@ -837,6 +844,27 @@ document.getElementById('end-prep-btn').addEventListener('click', () => {
       }
     });
   }
+
+  function abrirModalEscolhaDeEfeito(carta, contexto) {
+  const modal = document.getElementById('effect-choice-modal');
+  const buttonsContainer = document.getElementById('effect-buttons');
+
+  buttonsContainer.innerHTML = ''; // limpa botões anteriores
+  carta.effectOptions.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.innerText = opt.label;
+    btn.onclick = () => {
+      opt.execute(carta, contexto);
+      modal.style.display = 'none';
+      grave.push(carta);
+      render();
+    };
+    buttonsContainer.appendChild(btn);
+  });
+
+  modal.style.display = 'flex';
+}
+
   
   
   function showCardDetailsModal(card) {

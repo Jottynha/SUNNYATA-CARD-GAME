@@ -53,7 +53,7 @@ export const allCards = [
     ]
   },
   {
-    name: 'Franscisco',
+    name: 'Francisco',
     tipo:'criatura',
     subtipo: 'personagem',
     atk: 4,
@@ -62,7 +62,8 @@ export const allCards = [
     description: 'Um ex-militar com muita vontade de lutar.',
     specialEffect: 'Se fortalece em +1 de Ataque.',
     tipoInvocacao: 'normal',
-    expansao: 'Hajimeru (Básico)', // Novo atributo
+    expansao: 'Hajimeru (Básico)',
+    palavrasChave: ['ROBUSTO'],
     effect: (self, context) => {
       if (context.fase === 'combate') {
         context.log(`${self.name} se fortalece! Ganha +1 ATK!`);
@@ -118,13 +119,21 @@ export const allCards = [
     def: 2,
     img: 'cartas/Petrichor.png',
     description: 'Um xamã com poderes ancestrais.',
-    specialEffect: 'Compra mais uma carta.',
+    specialEffect: 'Invoca uma criatura auxiliar ao entrar.',
     tipoInvocacao: 'normal',
-    expansao: 'Hajimeru (Básico)', // Novo atributo
+    expansao: 'Hajimeru (Básico)',
     effect: (self, context) => {
-      if (context.fase === 'preparacao') {
-        context.log(`Jogador pode comprar mais uma carta`);
-        context.permitirCompra();
+      const tipos = ['defensiva', 'ofensiva', 'utilitaria'];
+      const escolha = tipos[Math.floor(Math.random() * tipos.length)];
+      const criatura = clonarCartaComEfeito(summonedCreatures[escolha]);
+
+
+      context.log(`Petrichor invoca ${criatura.name} (${escolha}).`);
+      context.invocarCriatura(criatura);
+
+      // Se a criatura invocada tiver efeito, aplicá-lo
+      if (typeof criatura.effect === 'function') {
+        criatura.effect(criatura, context);
       }
     },
     fusoesPossiveis: [
@@ -466,3 +475,66 @@ export const allCards = [
   
   
 ];
+
+function clonarCartaComEfeito(cartaOriginal) {
+  const { effect, transformar, ...dados } = cartaOriginal;
+  const clone = JSON.parse(JSON.stringify(dados));
+
+  if (effect) clone.effect = effect;
+  if (transformar) {
+    clone.transformar = {
+      ...transformar,
+      condicao: transformar.condicao,
+      novaForma: {
+        ...transformar.novaForma,
+        effect: transformar.novaForma.effect
+      }
+    };
+  }
+
+  return clone;
+}
+
+
+const summonedCreatures = {
+  defensiva: {
+    name: 'Ramsés',
+    tipo: 'criatura',
+    subtipo: 'espírito',
+    atk: 1,
+    def: 5,
+    img: 'cartas/Ramses.png',
+    description: 'Um espírito ancestral que protege com sua névoa densa.',
+    tipoInvocacao: 'invocada',
+    expansao: 'Hajimeru (Básico)',
+    effect: () => {} // Sem efeito especial
+  },
+  ofensiva: {
+    name: 'Cerberus',
+    tipo: 'criatura',
+    subtipo: 'besta',
+    atk: 5,
+    def: 1,
+    img: 'cartas/Cerberus.png',
+    description: 'Uma criatura feroz que ataca com relâmpagos.',
+    tipoInvocacao: 'invocada',
+    expansao: 'Hajimeru (Básico)',
+    effect: () => {}
+  },
+  utilitaria: {
+    name: 'Toupeira Estelar',
+    tipo: 'criatura',
+    subtipo: 'xamã',
+    atk: 1,
+    def: 2,
+    img: 'cartas/AnciaoOrvalho.png',
+    description: 'Concede visão e sabedoria ao seu invocador.',
+    tipoInvocacao: 'invocada',
+    expansao: 'Hajimeru (Básico)',
+    specialEffect: 'Compra uma carta ao entrar.',
+    effect: (self, context) => {
+      context.log(`${self.name} permite que você compre uma carta.`);
+      context.permitirCompra();
+    }
+  }
+};

@@ -187,6 +187,22 @@ function obterFusaoDisponivelEntre(cartas) {
   return null;
 }
 
+function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano) {
+  if (!carta.palavrasChave) return valorDano;
+
+  for (const palavra of carta.palavrasChave) {
+    switch (palavra) {
+      case 'ROBUSTO':
+        if (tipo === 'defesa') {
+          valorDano = Math.max(0, valorDano - 1);
+        }
+        break;
+      // Adicione mais palavras-chave aqui
+    }
+  }
+
+  return valorDano;
+}
 
 
 
@@ -532,6 +548,14 @@ function createCardElement(card) {
     text.classList.add('card-text');
     text.innerHTML = `<strong>${card.name}</strong><br>ATK: ${card.atk} | DEF: ${card.def}`;
     cardElement.appendChild(text);
+
+    if (card.palavrasChave && card.palavrasChave.length > 0) {
+      const keywords = document.createElement('div');
+      keywords.classList.add('card-keywords');
+      keywords.textContent = card.palavrasChave.join(', ');
+      cardElement.appendChild(keywords);
+    }
+    
   
     cardElement.draggable = true;
 
@@ -568,7 +592,10 @@ function addCardToField(field, index, card) {
 // Função para realizar o combate
 function combat(attacker, defender, attackerIndex, defenderIndex) {
   log(`${attacker.name} ataca ${defender.name}`);
-  defender.def -= attacker.atk;
+  let dano = attacker.atk;
+  dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
+  defender.def -= dano;
+
 
   if (defender.def <= 0) {
     log(`${defender.name} destruído`);
@@ -928,6 +955,7 @@ document.querySelectorAll('.opponent-slot').forEach((slot, index) => {
 
 
 async function startCombatPhase() {
+  console.log(playerField)
   ativarEfeitosDasCartas('combate');
 
   for (let i = 0; i < 3; i++) {
@@ -940,7 +968,10 @@ async function startCombatPhase() {
 
       await animateAttack('player-field', i, 'opponent-field', i);
 
-      defender.def -= attacker.atk;
+      let dano = attacker.atk;
+      dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
+      defender.def -= dano;
+
 
       if (defender.def <= 0) {
         const defenderSlot = document.querySelectorAll(`#opponent-field .slot`)[i];
@@ -987,7 +1018,10 @@ async function startCombatPhase() {
     await animateAttack('fusion-slot', 0, defender ? 'opponent-fusion-slot' : null, 0);
   
     if (defender) {
-      defender.def -= attacker.atk;
+      let dano = attacker.atk;
+      dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
+      defender.def -= dano;
+
   
       if (defender.def <= 0) {
         const defenderSlot = document.querySelector('#opponent-fusion-slot .slot');
@@ -1289,7 +1323,24 @@ document.getElementById('end-prep-btn').addEventListener('click', async () => {
       permitirCompra: () => { canDrawThisTurn = true; },
       modifyPlayerHP: (delta) => { playerHP += delta; },
       modifyOpponentHP: (delta) => { opponentHP += delta; },
+      
     };
+    contextoBase.invocarCriatura = (criatura) => {
+
+    
+      // Procura a primeira posição livre (null)
+      const posicaoLivre = contextoBase.playerField.findIndex(slot => slot === null);
+    
+      if (posicaoLivre !== -1) {
+        contextoBase.playerField[posicaoLivre] = criatura;
+        render();
+        contextoBase.log(`${criatura.name} foi invocada ao campo na posição ${posicaoLivre + 1}!`);
+      } else {
+        contextoBase.log(`Não há espaço disponível no campo para invocar ${criatura.name}.`);
+      }
+    };
+    
+    
 
     if (cartaUnica && cartaUnica.tipo === 'equipamento') {
       log(`Selecione uma criatura aliada para equipar ${cartaUnica.name}.`);
@@ -1486,7 +1537,8 @@ function showCardDetailsModal(card) {
       <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
       <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
       <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
-    `;
+      <p><strong>Palavras-chave:</strong> ${card.palavrasChave ? card.palavrasChave.join(', ') : 'Nenhuma'}</p>
+      `;
 
     // Se tiver equipamentos anexados, exibe-os
     if (card.equipamentos && card.equipamentos.length > 0) {

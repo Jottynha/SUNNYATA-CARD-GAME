@@ -1070,157 +1070,169 @@ function escolherMelhorCriatura(hand) {
   if (criaturas.length === 0) return null;
   return criaturas.reduce((best, c) => c.atk > best.atk ? c : best, criaturas[0]);
 }
-
 async function opponentTurn() {
   await new Promise(r => setTimeout(r, 800));
-  
+
   // 1) Compra
-  if (opponentDeck.length > 0) {
-    const drawn = opponentDeck.pop();
-    opponentHand.push(drawn);
+  if (opponentDeck.length) {
+    opponentHand.push(opponentDeck.pop());
   }
 
-  // 2) Tentativa de Fusão (sem limite)
-  const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(c=>c));
+  // Contextos
+  const context = {
+    fase: 'preparacao',
+    modifyPlayerHP: v => { playerHP = Math.max(0, playerHP + v); },
+    modifyOpponentHP: v => { opponentHP = Math.max(0, opponentHP + v); },
+    log
+  };
+  const flipped = {
+    ...context,
+    modifyPlayerHP: context.modifyOpponentHP,
+    modifyOpponentHP: context.modifyPlayerHP
+  };
+
+  // 2) Fusão (se possível)
+  const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(c => c));
   if (fusaoBot && !opponentFusionField[0]) {
-    realizarFusao(fusaoBot.base, fusaoBot.com, fusaoBot.resultado, true);
-    log(`Oponente fundiu ${fusaoBot.base.name} + ${fusaoBot.com.name} → ${fusaoBot.resultado.name}`);
-    render(); await new Promise(r=>setTimeout(r,800));
-  }
-
-  // Contextos para efeitos
-  const context = { fase: 'preparacao', modifyPlayerHP: v=>{playerHP+=v; if(playerHP<0)playerHP=0}, modifyOpponentHP: v=>{opponentHP+=v; if(opponentHP<0)opponentHP=0}, log };
-  const flipped = { ...context, modifyPlayerHP: context.modifyOpponentHP, modifyOpponentHP: context.modifyPlayerHP };
-
-  // 3) Magias & Equipamentos
-  for (let cardType of ['magia','equipamento']) {
-    const idx = opponentHand.findIndex(c=>c.tipo===cardType);
-    if (idx !== -1) {
-      const card = opponentHand.splice(idx,1)[0];
-      if (card.tipo==='magia') {
-        if (card.subtipo==='continua') {
-          const slot = opponentMagicField.findIndex(s=>s===null);
-          if (slot>=0) {
-            opponentMagicField[slot]=card;
-            log(`Oponente ativou magia contínua ${card.name}`);
-          } else {
-            grave.push(card);
-            log(`Sem espaço p/ contínua ${card.name}, vai ao cemitério`);
-          }
-        } else {
-          card.effect?.(card, flipped);
-          log(`Oponente usou magia ${card.name}`);
-          grave.push(card);
-        }
-      } else { // equipamento
-        const targetIdx = opponentField.findIndex(c=>c && c.tipo==='criatura');
-        if (targetIdx>=0) {
-          const cr = opponentField[targetIdx];
-          cr.equipamentos = cr.equipamentos||[];
-          cr.equipamentos.push(card);
-          card.effect?.(card, {...flipped, alvoCampo: cr});
-          log(`Oponente equipou ${card.name} em ${cr.name}`);
-          grave.push(card);
-          if (cr.transformar?.condicao(cr, flipped)) transformarCarta(cr, flipped);
-        } else {
-          grave.push(card);
-          log(`Sem criatura p/ equipar ${card.name}, vai ao cemitério`);
-        }
-      }
-      render(); await new Promise(r=>setTimeout(r,800));
+    const resName = fusaoBot.resultado.name;
+    const idxSD  = specialDeck.findIndex(e => e.name === resName);
+    if (idxSD !== -1) {
+      specialDeck.splice(idxSD, 1);
+      renderSpecialDeckUI();
+      log(`’${resName}’ consumida do Deck Especial para fusão.`);
+      realizarFusao(fusaoBot.base, fusaoBot.com, fusaoBot.resultado, true);
+      log(`Oponente fundiu ${fusaoBot.base.name} + ${fusaoBot.com.name} → ${resName}`);
+      render(); await new Promise(r => setTimeout(r, 800));
+    } else {
+      log(`Fusão de ${resName} bloqueada (não está no Deck Especial).`);
     }
   }
 
-  // 4) Invocação normal (uma por turno)
+  // 3) Invocação Normal PRIORITÁRIA
   if (!invocacaoNormalFeitaOponente) {
-    const melhor = escolherMelhorCriatura(opponentHand);
-    if (melhor) {
-      // remove da mão
-      opponentHand.splice(opponentHand.indexOf(melhor),1);
-      // coloca no campo no melhor slot livre
-      const livres = opponentField.map((c,i)=>c===null?i:-1).filter(i=>i!==-1);
-      if (livres.length>0) {
-        // tenta bater numa defesa fraca do player
+    const criatura = escolherMelhorCriatura(opponentHand);
+    if (criatura) {
+      opponentHand.splice(opponentHand.indexOf(criatura), 1);
+      const livres = opponentField
+        .map((c,i) => c === null ? i : -1)
+        .filter(i => i !== -1);
+      if (livres.length) {
         let slot = livres[0];
         for (let i of livres) {
           const pc = playerField[i];
-          if (pc && melhor.atk>=pc.def) { slot = i; break; }
+          if (pc && criatura.atk >= pc.def) { slot = i; break; }
         }
-        opponentField[slot] = melhor;
-        log(`Oponente invocou ${melhor.name} no slot ${slot+1}`);
+        opponentField[slot] = criatura;
         invocacaoNormalFeitaOponente = true;
-        render(); await new Promise(r=>setTimeout(r,800));
+        log(`Oponente invocou ${criatura.name} no slot ${slot+1}`);
+        render(); await new Promise(r => setTimeout(r, 800));
       } else {
-        // campo cheio, devolve à mão
-        opponentHand.push(melhor);
+        opponentHand.push(criatura);
       }
+    }
+  }
+
+  // 4) Uso de Magias e Equipamentos
+  for (let i = opponentHand.length - 1; i >= 0; i--) {
+    const card = opponentHand[i];
+    if (card.tipo === 'magia') {
+      opponentHand.splice(i,1);
+      if (card.subtipo === 'continua') {
+        const slot = opponentMagicField.findIndex(s => s === null);
+        if (slot >= 0) {
+          opponentMagicField[slot] = card;
+          log(`Oponente ativou magia contínua ${card.name}`);
+        } else {
+          grave.push(card);
+          log(`Sem espaço p/ contínua ${card.name}, vai ao cemitério`);
+        }
+      } else {
+        card.effect?.(card, flipped);
+        log(`Oponente usou magia ${card.name}`);
+        grave.push(card);
+      }
+      render(); await new Promise(r => setTimeout(r, 600));
+    }
+    else if (card.tipo === 'equipamento') {
+      opponentHand.splice(i,1);
+      const tgt = opponentField.find(c => c && c.tipo === 'criatura');
+      if (tgt) {
+        tgt.equipamentos = tgt.equipamentos || [];
+        tgt.equipamentos.push(card);
+        card.effect?.(card, { ...flipped, alvoCampo: tgt });
+        log(`Oponente equipou ${card.name} em ${tgt.name}`);
+        if (tgt.transformar?.condicao(tgt, flipped)) transformarCarta(tgt, flipped);
+      } else {
+        grave.push(card);
+        log(`Sem criatura p/ equipar ${card.name}, vai ao cemitério`);
+      }
+      render(); await new Promise(r => setTimeout(r, 600));
     }
   }
 
   // 5) Ataques
   for (let i = 0; i < 3; i++) {
     const atk = opponentField[i], def = playerField[i];
-    if (atk && def) {
-      log(`Oponente (${atk.name}) ataca seu ${def.name}`);
-      await animateAttack('opponent-field',i,'player-field',i);
-      def.def -= atk.atk;
-      if (def.def <= 0) {
-        grave.push(def);
-        playerField[i] = null;
-        log(`${def.name} destruído!`);
+    if (atk) {
+      if (def) {
+        log(`Oponente (${atk.name}) ataca seu ${def.name}`);
+        await animateAttack('opponent-field', i, 'player-field', i);
+        def.def -= atk.atk;
+        if (def.def <= 0) {
+          grave.push(def);
+          playerField[i] = null;
+          log(`${def.name} destruído!`);
+        } else {
+          log(`${def.name} sobreviveu com DEF ${def.def}`);
+        }
       } else {
-        log(`${def.name} sobreviveu com DEF ${def.def}`);
+        log(`${atk.name} ataca diretamente!`);
+        await animateAttack('opponent-field', i);
+        playerHP -= atk.atk;
+        if (playerHP <= 0) {
+          playerHP = 0;
+          render();
+          return alert('Você perdeu!'), restartGame();
+        }
       }
-    } else if (atk && !def) {
-      log(`${atk.name} ataca diretamente!`);
-      await animateAttack('opponent-field',i);
-      playerHP -= atk.atk;
-      if (playerHP <= 0) return alert('Você perdeu!'), restartGame();
+      render(); await new Promise(r => setTimeout(r, 600));
     }
-    await new Promise(r=>setTimeout(r,600));
   }
 
-  // Limpa magias contínuas expiradas
-  opponentMagicField.forEach((c,i)=>{
-    if (c && c.subtipo==='continua') {
+  // 6) Limpeza de mágicas contínuas
+  opponentMagicField.forEach((c,i) => {
+    if (c && c.subtipo === 'continua') {
       c.turnosRestantes--;
-      if (c.turnosRestantes<0) {
+      if (c.turnosRestantes < 0) {
         grave.push(c);
-        opponentMagicField[i]=null;
+        opponentMagicField[i] = null;
         log(`${c.name} expirou e foi ao cemitério`);
       } else {
         ativarEfeitosDasCartas('preparacao', c);
       }
+      render();
     }
   });
 
+  // Reset e finalização
+  invocacaoNormalFeitaOponente = false;
   render();
   log('--- Turno do Oponente Encerrado ---');
+  invocacaoNormalFeita = false;
 }
 
 
+  
+  
+document.getElementById('end-prep-btn').addEventListener('click', async () => {
+  log('--- Fase de Combate Iniciada ---');
+  await startCombatPhase();      // espera sua fase de ataques cliente
+  log('--- Turno do Oponente ---');
+  await opponentTurn();          // só então executa o oponente
+});
 
-  
-  
-document.getElementById('end-prep-btn').addEventListener('click', () => {
-    log('--- Fase de Combate Iniciada ---');
-    startCombatPhase();
-  
-    setTimeout(() => {
-      log('--- Turno do Oponente ---');
-      opponentTurn();
-    }, 1000); // Pequeno delay para separar fases
-  });
   function restartGame() {
-    playerField = [null, null, null];
-    opponentField = [null, null, null];
-    playerHand = [];
-    selectedCard = null;
-    selectedHandCard = null;
-    playerHP = 10;
-    opponentHP = 10;
-    log('Jogo reiniciado!');
-    render();
+    location.reload();
   }
   function shuffleDeck(deck) {
     for (let i = deck.length - 1; i > 0; i--) {

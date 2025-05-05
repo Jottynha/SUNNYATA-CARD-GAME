@@ -16,6 +16,7 @@ let turn = 0;
 let playerHand = []; // cartas na mão
 let selectedHandCard = null
 let deck = [];
+const specialDeck = [];
 let opponentDeck = [];
 let opponentHand = [];
 let grave = [];
@@ -40,58 +41,128 @@ function createOpponentDeck() {
 
 
   
+function addToSpecialDeck(card) {
+  if (specialDeck.length >= 5) {
+    return log('Deck Especial já está cheio (5 cartas).');
+  }
+  specialDeck.push({ name: card.name, card });
+  renderSpecialDeckUI();
+  log(`’${card.name}’ adicionada ao Deck Especial.`);
+}
+
+function removeFromSpecialDeck(index) {
+  const removed = specialDeck.splice(index, 1)[0];
+  renderSpecialDeckUI();
+  log(`’${removed.name}’ removida do Deck Especial.`);
+}
+
+function renderSpecialDeckUI() {
+  const container = document.getElementById('special-deck');
+  container.innerHTML = ''; 
+  specialDeck.forEach((entry, idx) => {
+    const el = createCardElement(entry.card);
+    el.classList.add('in-special-deck');
+    // botão para remover
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.classList.add('remove-special-btn');
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      removeFromSpecialDeck(idx);
+    });
+    el.appendChild(btn);
+    container.appendChild(el);
+  });
+  document.getElementById('special-count').textContent =
+    `Deck Especial: ${specialDeck.length}/5`;
+}
+
+// --- 3) Integração em initDeckManager() ---
 function initDeckManager() {
   createOpponentDeck();
-  const availableCardsContainer = document.getElementById('available-cards');
-  availableCardsContainer.innerHTML = ''; // Limpar a área de cartas
 
-  // Organizar as cartas por expansão
+  const available = document.getElementById('available-cards');
+  available.innerHTML = '';
+
+  // Renderiza painel do Deck Especial acima
+  const manager = document.getElementById('deck-manager');
+  const specialPanel = document.createElement('div');
+  specialPanel.id = 'special-deck-panel';
+  specialPanel.innerHTML = `
+    <h2>Deck Especial (max 5)</h2>
+    <p id="special-count">Deck Especial: 0/5</p>
+    <div id="special-deck" class="cards-row"></div>
+    <hr/>
+  `;
+  manager.insertBefore(specialPanel, available);
+
+  // Organiza por expansão
   const expansions = {};
-
-  allCards.forEach(card => {
-    const expansion = card.expansao || 'Sem Expansão';
-
-    if (!expansions[expansion]) {
-      expansions[expansion] = [];
-    }
-
-    expansions[expansion].push(card);
+  allCards.forEach(c => {
+    const exp = c.expansao || 'Sem Expansão';
+    if (!expansions[exp]) expansions[exp] = [];
+    expansions[exp].push(c);
   });
 
-  // Criar um contêiner para cada expansão
-  Object.keys(expansions).forEach(expansion => {
-    const expansionContainer = document.createElement('div');
-    expansionContainer.classList.add('expansion-container');
-    const expansionTitle = document.createElement('h3');
-    expansionTitle.textContent = expansion;
-    expansionContainer.appendChild(expansionTitle);
+  // Para cada expansão, renderiza as cartas
+  Object.entries(expansions).forEach(([exp, cards]) => {
+    const block = document.createElement('div');
+    block.classList.add('expansion-container');
+    block.innerHTML = `<h3>${exp}</h3>`;
 
-    // Criar os elementos das cartas dentro da expansão
-    let cardsContainer = null;
-    expansions[expansion].forEach((card, index) => {
-      if (index % 8 === 0) {
-        cardsContainer = document.createElement('div');
-        cardsContainer.classList.add('cards-row');
-        expansionContainer.appendChild(cardsContainer);
+    let row = null;
+    cards.forEach((card, i) => {
+      if (i % 8 === 0) {
+        row = document.createElement('div');
+        row.classList.add('cards-row');
+        block.appendChild(row);
       }
 
-      // Escolhe a função de criação com base no tipo da carta
-      const cardElement =
-        card.tipo === 'magia'
-          ? createMagicCardElement(card)
-          : card.tipo === 'equipamento'
-          ? createEquipamentCardElement(card)
-          : createCardElement(card);
+      const cardEl = 
+        card.tipo === 'magia'       ? createMagicCardElement(card) :
+        card.tipo === 'equipamento'? createEquipamentCardElement(card) :
+                                      createCardElement(card);
+      cardEl.classList.add('card');
+      cardEl.addEventListener('click', () => selectCard(card));
+      row.appendChild(cardEl);
+      if (card.tipo === 'criatura' && card.fusoesPossiveis?.length) {
+        // ícone de fusão
+        const icon = document.createElement('div');
+        icon.classList.add('fusion-icon');
+        icon.textContent = '⚙️';
 
-      cardElement.classList.add('card');
-      cardElement.addEventListener('click', () => selectCard(card));
-      cardsContainer.appendChild(cardElement);
+        // tooltip que aparecerá no hover
+        const tooltip = document.createElement('div');
+        tooltip.classList.add('fusion-tooltip');
+        tooltip.innerHTML = card.fusoesPossiveis
+          .map(f => `<div class="fusion-entry">
+                      <strong>${f.com}</strong> → ${f.resultado.name}
+                    </div>`)
+          .join('');
+
+        // para cada entrada do tooltip, clique adiciona ao deck especial
+        tooltip.querySelectorAll('.fusion-entry').forEach((entryEl, i) => {
+          entryEl.style.cursor = 'pointer';
+          entryEl.addEventListener('click', e => {
+            e.stopPropagation();
+            addToSpecialDeck(card.fusoesPossiveis[i].resultado);
+          });
+        });
+
+        cardEl.appendChild(icon);
+        cardEl.appendChild(tooltip);
+      }
+
     });
 
-    availableCardsContainer.appendChild(expansionContainer);
+    available.appendChild(block);
   });
 
+  // Botão de iniciar
   document.getElementById('start-game-btn').addEventListener('click', startGame);
+
+  // Renderiza inicial do painel especial
+  renderSpecialDeckUI();
 }
 
 function obterFusaoDisponivelEntre(cartas) {
@@ -679,28 +750,36 @@ function mostrarOpcoesDeFusao(candidatos) {
 // Função para executar a fusão
 function executarFusao(cartaFusionavel) {
   const fusao = selectedHandCard.fusoesPossiveis.find(f => f.com === cartaFusionavel.name);
-  const resultado = fusao.resultado;
+  if (!fusao) {
+    return log('Essa fusão não existe.');
+  }
+  // procura no specialDeck uma entrada de resultado igual
+  const idx = specialDeck.findIndex(e => e.name === fusao.resultado.name);
+  if (idx === -1) {
+    return log(`Você não tem '${fusao.resultado.name}' no Deck Especial.`);
+  }
 
-  // Remove as cartas de origem (mão e campo)
-  [selectedHandCard, cartaFusionavel].forEach(carta => {
-    const idxMao = playerHand.indexOf(carta);
-    if (idxMao !== -1) playerHand.splice(idxMao, 1);
-    
-    const idxCampo = playerField.indexOf(carta);
-    if (idxCampo !== -1) playerField[idxCampo] = null;
+  // consome 1 cópia do deck especial
+  specialDeck.splice(idx, 1);
+  renderSpecialDeckUI();
+  log(`’${fusao.resultado.name}’ consumida do Deck Especial para fusão.`);
+
+  // remove cartas de origem e invoca como antes...
+  [selectedHandCard, cartaFusionavel].forEach(c => {
+    const iH = playerHand.indexOf(c);
+    if (iH > -1) playerHand.splice(iH, 1);
+    const iF = playerField.indexOf(c);
+    if (iF > -1) playerField[iF] = null;
   });
 
-  // Coloca a carta fusionada no campo
-  fusionField = resultado;
-
+  fusionField = fusao.resultado;
   if (!fusionField.efeitoAtivadoPreparacao) {
     ativarEfeitosDasCartas('preparacao', fusionField);
     fusionField.efeitoAtivadoPreparacao = true;
   }
-
-  log(`${resultado.name} foi fundido a partir de ${selectedHandCard.name} e ${cartaFusionavel.name} no Slot Especial!`);
+  log(`${fusionField.name} foi invocado(a)!`);
   selectedHandCard = null;
-  render(); // Re-renderiza o jogo com a nova carta fusionada
+  render();
 }
 
 // Lógica de clique no Slot de Fusão
@@ -983,176 +1062,142 @@ function realizarFusao(carta1, carta2, resultado, isOpponent = false) {
 }
 
 
+let invocacaoNormalFeitaOponente = false;
+
+function escolherMelhorCriatura(hand) {
+  // Exemplo de heurística: escolhe a criatura de maior ATK
+  const criaturas = hand.filter(c => c.tipo === 'criatura');
+  if (criaturas.length === 0) return null;
+  return criaturas.reduce((best, c) => c.atk > best.atk ? c : best, criaturas[0]);
+}
+
 async function opponentTurn() {
-  await new Promise(resolve => setTimeout(resolve, 800));
-
+  await new Promise(r => setTimeout(r, 800));
+  
+  // 1) Compra
   if (opponentDeck.length > 0) {
-    const drawnCard = opponentDeck.pop();
-    if (drawnCard) {
-      opponentHand.push(drawnCard);
-    }
-    const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(c => c));
-    if (fusaoBot && !opponentFusionField[0]) {
-      realizarFusao(fusaoBot.base, fusaoBot.com, fusaoBot.resultado, true); // true = bot
-      log(`O oponente fundiu ${fusaoBot.base.name} com ${fusaoBot.com.name} e criou ${fusaoBot.resultado.name}`);
-      render();
-      await new Promise(resolve => setTimeout(resolve, 800));
-    }
+    const drawn = opponentDeck.pop();
+    opponentHand.push(drawn);
+  }
 
-    const context = {
-      fase: 'preparacao',
-      modifyPlayerHP: value => {
-        playerHP += value;
-        if (playerHP < 0) playerHP = 0;
-      },
-      modifyOpponentHP: value => {
-        opponentHP += value;
-        if (opponentHP < 0) opponentHP = 0;
-      },
-      log: msg => log(msg),
-    };
+  // 2) Tentativa de Fusão (sem limite)
+  const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(c=>c));
+  if (fusaoBot && !opponentFusionField[0]) {
+    realizarFusao(fusaoBot.base, fusaoBot.com, fusaoBot.resultado, true);
+    log(`Oponente fundiu ${fusaoBot.base.name} + ${fusaoBot.com.name} → ${fusaoBot.resultado.name}`);
+    render(); await new Promise(r=>setTimeout(r,800));
+  }
 
-    const flippedContext = {
-      ...context,
-      modifyPlayerHP: context.modifyOpponentHP,
-      modifyOpponentHP: context.modifyPlayerHP
-    };
+  // Contextos para efeitos
+  const context = { fase: 'preparacao', modifyPlayerHP: v=>{playerHP+=v; if(playerHP<0)playerHP=0}, modifyOpponentHP: v=>{opponentHP+=v; if(opponentHP<0)opponentHP=0}, log };
+  const flipped = { ...context, modifyPlayerHP: context.modifyOpponentHP, modifyOpponentHP: context.modifyPlayerHP };
 
-    if (drawnCard.tipo === 'magia') {
-      // Magia contínua ocupa slot; imediata vai para o cemitério
-      if (drawnCard.subtipo === 'continua') {
-        const magicSlotIndex = opponentMagicField.findIndex(slot => slot === null);
-        if (magicSlotIndex !== -1) {
-          opponentMagicField[magicSlotIndex] = drawnCard;
-          log(`Oponente ativou a magia contínua ${drawnCard.name}`);
-          render();
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      } else {
-        if (typeof drawnCard.effect === 'function') {
-          drawnCard.effect(drawnCard, flippedContext);
-          log(`Oponente usou a magia ${drawnCard.name}`);
-          grave.push(drawnCard);
-          render();
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-    } else if (drawnCard.tipo === 'equipamento') {
-      // Equipar criatura aliada se possível
-      const targetIndex = opponentField.findIndex(c => c && c.tipo === 'criatura');
-      if (targetIndex !== -1) {
-        const creature = opponentField[targetIndex];
-        if (!creature.equipamentos) creature.equipamentos = [];
-        creature.equipamentos.push(drawnCard);
-
-        if (typeof drawnCard.effect === 'function') {
-          drawnCard.effect(drawnCard, { ...flippedContext, alvoCampo: creature });
-        }
-
-        log(`Oponente equipou ${drawnCard.name} em ${creature.name}`);
-
-        // Verifica transformação
-        if (creature?.transformar?.condicao?.(creature, flippedContext)) {
-          transformarCarta(creature, flippedContext);
-        }
-
-        grave.push(drawnCard);
-        render();
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } else {
-        // Não há criatura para equipar: carta descartada
-        log(`Oponente não tinha criatura para equipar ${drawnCard.name}, carta descartada.`);
-        grave.push(drawnCard);
-      }
-    } else if (drawnCard.tipo === 'criatura') {
-      const emptyIndices = opponentField
-        .map((c, i) => (c === null ? i : -1))
-        .filter(i => i !== -1);
-
-      if (emptyIndices.length > 0) {
-        let bestSlot = emptyIndices[0];
-        for (let slot of emptyIndices) {
-          const playerCard = playerField[slot];
-          if (playerCard && drawnCard.atk >= playerCard.def) {
-            bestSlot = slot;
-            break;
+  // 3) Magias & Equipamentos
+  for (let cardType of ['magia','equipamento']) {
+    const idx = opponentHand.findIndex(c=>c.tipo===cardType);
+    if (idx !== -1) {
+      const card = opponentHand.splice(idx,1)[0];
+      if (card.tipo==='magia') {
+        if (card.subtipo==='continua') {
+          const slot = opponentMagicField.findIndex(s=>s===null);
+          if (slot>=0) {
+            opponentMagicField[slot]=card;
+            log(`Oponente ativou magia contínua ${card.name}`);
+          } else {
+            grave.push(card);
+            log(`Sem espaço p/ contínua ${card.name}, vai ao cemitério`);
           }
+        } else {
+          card.effect?.(card, flipped);
+          log(`Oponente usou magia ${card.name}`);
+          grave.push(card);
         }
-
-        opponentField[bestSlot] = drawnCard;
-        log(`Oponente invocou ${drawnCard.name} no slot ${bestSlot + 1}`);
-        render();
-        await new Promise(resolve => setTimeout(resolve, 800));
+      } else { // equipamento
+        const targetIdx = opponentField.findIndex(c=>c && c.tipo==='criatura');
+        if (targetIdx>=0) {
+          const cr = opponentField[targetIdx];
+          cr.equipamentos = cr.equipamentos||[];
+          cr.equipamentos.push(card);
+          card.effect?.(card, {...flipped, alvoCampo: cr});
+          log(`Oponente equipou ${card.name} em ${cr.name}`);
+          grave.push(card);
+          if (cr.transformar?.condicao(cr, flipped)) transformarCarta(cr, flipped);
+        } else {
+          grave.push(card);
+          log(`Sem criatura p/ equipar ${card.name}, vai ao cemitério`);
+        }
       }
+      render(); await new Promise(r=>setTimeout(r,800));
     }
   }
 
-  // Ataques
-  for (let i = 0; i < 3; i++) {
-    const attacker = opponentField[i];
-    const defender = playerField[i];
-
-    if (attacker && defender) {
-      log(`Oponente (${attacker.name}) ataca seu ${defender.name}`);
-      await new Promise(resolve => setTimeout(resolve, 600));
-      await animateAttack('opponent-field', i, 'player-field', i);
-
-      defender.def -= attacker.atk;
-
-      if (defender.def <= 0) {
-        const defenderSlot = document.querySelectorAll(`#player-field .slot`)[i];
-        const defenderCard = defenderSlot.querySelector('.card');
-        if (defenderCard) {
-          defenderCard.classList.add('destroyed');
-          await new Promise(resolve => setTimeout(resolve, 1200));
+  // 4) Invocação normal (uma por turno)
+  if (!invocacaoNormalFeitaOponente) {
+    const melhor = escolherMelhorCriatura(opponentHand);
+    if (melhor) {
+      // remove da mão
+      opponentHand.splice(opponentHand.indexOf(melhor),1);
+      // coloca no campo no melhor slot livre
+      const livres = opponentField.map((c,i)=>c===null?i:-1).filter(i=>i!==-1);
+      if (livres.length>0) {
+        // tenta bater numa defesa fraca do player
+        let slot = livres[0];
+        for (let i of livres) {
+          const pc = playerField[i];
+          if (pc && melhor.atk>=pc.def) { slot = i; break; }
         }
-        grave.push(defender);
-        playerField[i] = null;
-        log(`${defender.name} foi destruído!`);
+        opponentField[slot] = melhor;
+        log(`Oponente invocou ${melhor.name} no slot ${slot+1}`);
+        invocacaoNormalFeitaOponente = true;
+        render(); await new Promise(r=>setTimeout(r,800));
       } else {
-        log(`${defender.name} sobreviveu com DEF ${defender.def}`);
-      }
-
-    } else if (attacker && !defender) {
-      log(`${attacker.name} ataca você diretamente!`);
-      await new Promise(resolve => setTimeout(resolve, 600));
-      await animateAttack('opponent-field', i);
-      playerHP -= attacker.atk;
-
-      if (playerHP <= 0) {
-        playerHP = 0;
-        render();
-        setTimeout(() => {
-          alert('Você perdeu!');
-          restartGame();
-        }, 100);
-        return;
+        // campo cheio, devolve à mão
+        opponentHand.push(melhor);
       }
     }
-
-    await new Promise(resolve => setTimeout(resolve, 600));
   }
+
+  // 5) Ataques
+  for (let i = 0; i < 3; i++) {
+    const atk = opponentField[i], def = playerField[i];
+    if (atk && def) {
+      log(`Oponente (${atk.name}) ataca seu ${def.name}`);
+      await animateAttack('opponent-field',i,'player-field',i);
+      def.def -= atk.atk;
+      if (def.def <= 0) {
+        grave.push(def);
+        playerField[i] = null;
+        log(`${def.name} destruído!`);
+      } else {
+        log(`${def.name} sobreviveu com DEF ${def.def}`);
+      }
+    } else if (atk && !def) {
+      log(`${atk.name} ataca diretamente!`);
+      await animateAttack('opponent-field',i);
+      playerHP -= atk.atk;
+      if (playerHP <= 0) return alert('Você perdeu!'), restartGame();
+    }
+    await new Promise(r=>setTimeout(r,600));
+  }
+
+  // Limpa magias contínuas expiradas
+  opponentMagicField.forEach((c,i)=>{
+    if (c && c.subtipo==='continua') {
+      c.turnosRestantes--;
+      if (c.turnosRestantes<0) {
+        grave.push(c);
+        opponentMagicField[i]=null;
+        log(`${c.name} expirou e foi ao cemitério`);
+      } else {
+        ativarEfeitosDasCartas('preparacao', c);
+      }
+    }
+  });
 
   render();
   log('--- Turno do Oponente Encerrado ---');
-
-  invocacaoNormalFeita = false;
-
-  magicField.forEach((carta, index) => {
-    if (carta && carta.tipo === 'magia' && carta.subtipo === 'continua') {
-      if (carta.turnosRestantes <= 0) {
-        log(`${carta.name} se esgotou e foi enviada ao cemitério.`);
-        grave.push(carta);
-        magicField[index] = null;
-        render();
-        return;
-      }
-      ativarEfeitosDasCartas('preparacao', carta);
-      carta.turnosRestantes--;
-      render();
-    }
-  });
 }
+
 
 
   
@@ -1486,7 +1531,9 @@ document.getElementById('player-deck').addEventListener('click', () => showCards
 document.getElementById('player-grave').addEventListener('click', () => showCards('Cemitério (Você)', grave));
 document.getElementById('opponent-deck').addEventListener('click', () => showCards('Deck (Oponente)', opponentDeck));
 document.getElementById('opponent-grave').addEventListener('click', () => showCards('Cemitério (Oponente)', opponentGrave));
-  
+document.getElementById('special-deck-panel')
+        .addEventListener('click', () => showCards('Deck Especial', specialDeck.map(e=>e.card)));  
+
 document.getElementById('btn-regras').addEventListener('click', () => {
   document.getElementById('modal-regras').style.display = 'block';
 });

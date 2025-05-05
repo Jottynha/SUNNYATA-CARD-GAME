@@ -28,7 +28,29 @@ export const allCards = [
           context.log('Não há cartas mágicas restantes no deck.');
         }
       }
-    }
+    },
+    fusoesPossiveis: [
+      {
+        com: 'Sasuke',
+        resultado: {
+          name: 'Martinke',
+          tipo: 'criatura',
+          subtipo: 'fusão',
+          atk: 10,
+          def: 2,
+          img: 'cartas/Martinke.png',
+          description: 'A fusão do teleporte e cegueira.',
+          specialEffect: 'Recebe +4 de ATK se não houver oponentes no campo.',
+          tipoInvocacao: 'especial',
+          effect: (self, context) => {
+            if (context.enemiesOnField === 0) {
+              self.atk += 4;
+              context.log(`${self.name} recebeu +4 de ATK pela fusão em campo vazio!`);
+            }
+          }
+        }
+      }
+    ]
   },
   {
     name: 'Franscisco',
@@ -220,7 +242,29 @@ export const allCards = [
         self.atk += 2;
         context.log(`${self.name} dispara com vantagem numérica! +2 ATK`);
       }
-    }
+    },
+    fusoesPossiveis: [
+      {
+        com: 'Martin',
+        resultado: {
+          name: 'Martinke',
+          tipo: 'criatura',
+          subtipo: 'fusão',
+          atk: 10,
+          def: 2,
+          img: 'cartas/Martinke.png',
+          description: 'A fusão do teleporte e cegueira.',
+          specialEffect: 'Recebe +4 de ATK se não houver oponentes no campo.',
+          tipoInvocacao: 'especial',
+          effect: (self, context) => {
+            if (context.enemiesOnField === 0) {
+              self.atk += 4;
+              context.log(`${self.name} recebeu +4 de ATK pela fusão em campo vazio!`);
+            }
+          }
+        }
+      }
+    ]
   },
   {
     name: 'Stolas',

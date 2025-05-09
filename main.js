@@ -1674,5 +1674,19 @@ window.addEventListener('click', (event) => {
   }
 });
 
+function checkOrientation() {
+  const warning = document.getElementById('rotate-warning');
+  if (window.innerHeight > window.innerWidth) {
+    warning.style.display = 'flex'; // está em modo retrato
+  } else {
+    warning.style.display = 'none'; // está em modo paisagem
+  }
+}
+
+window.addEventListener('resize', checkOrientation);
+window.addEventListener('orientationchange', checkOrientation);
+window.addEventListener('load', checkOrientation);
+
+
 // Inicializa o jogo
 window.onload = () => initDeckManager();

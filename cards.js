@@ -319,6 +319,7 @@ export const allCards = [
     atk: 2,
     def: 2,
     img: 'cartas/Free.png',
+    palavrasChave: ['FEROZ'],
     description: 'Um espírito livre que se fortalece com doçura.',
     specialEffect: 'Ao ser invocado, permite ao jogador comprar 1 carta se ainda não comprou neste turno.',
     tipoInvocacao: 'normal',
@@ -469,7 +470,60 @@ export const allCards = [
         context.log(`${criatura.name} recebeu ${self.name} (+2 ATK).`);
       }
     }
+  },
+  {
+    name: 'Vassago',
+    tipo: 'criatura',
+    subtipo: 'personagem',
+    atk: 1,
+    def: 4,
+    img: 'cartas/Vassago.png',
+    description: 'Um homem bizarro que busca a Chama.',
+    specialEffect: 'Ao entrar em campo, busca "A Chama" no deck e a adiciona à mão.',
+    tipoInvocacao: 'normal',
+    expansao: 'Artefactia (Básico)',
+    palavrasChave: ['IMUNE'],
+    _FoiAtacada: false,
+    effect: (self, context) => {
+      if (context.fase === 'preparacao') {
+        const index = context.deck.findIndex(carta => carta.name === 'A Chama');
+        if (index !== -1) {
+          const chama = context.deck.splice(index, 1)[0]; 
+          context.playerHand.push(chama); // Adiciona à mão
+          context.log(`${self.name} encontrou "A Chama" e a adicionou à mão.`);
+        } else {
+          context.log(`${self.name} procurou por "A Chama", mas ela não estava no deck.`);
+        }
+      }
+    }
+  },
+  {
+    name: 'A Chama',
+    tipo: 'equipamento',
+    subtipo: 'chama',
+    img: 'cartas/A_Chama.png',
+    description: 'Um grimório vivo que se vincula à alma da criatura. Cria uma magia aleatória na mão do jogador.',
+    tipoInvocacao: 'normal',
+    expansao: 'Hajimeru (Avançado)',
+    palavrasChave: [],
+    effect: (self, context) => {
+      if (context.fase === 'preparacao') {
+        const magias = context.deck.filter(carta => carta.tipo === 'magia');
+        if (magias.length > 0) {
+          const sorteada = magias[Math.floor(Math.random() * magias.length)];
+          const index = context.deck.indexOf(sorteada);
+          if (index !== -1) {
+            context.deck.splice(index, 1);
+            context.playerHand.push(sorteada);
+            context.log(`Você comprou a carta mágica: ${sorteada.name}`);
+          }
+        } else {
+          context.log('Não há cartas mágicas restantes no deck.');
+        }
+      }
+    }
   }
+  
   
   
   

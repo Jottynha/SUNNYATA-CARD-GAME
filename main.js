@@ -187,22 +187,69 @@ function obterFusaoDisponivelEntre(cartas) {
   return null;
 }
 
-function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano) {
+function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase) {
   if (!carta.palavrasChave) return valorDano;
 
   for (const palavra of carta.palavrasChave) {
     switch (palavra) {
       case 'ROBUSTO':
         if (tipo === 'defesa') {
+          contextoBase.log(`${carta.name} é ROBUSTO e reduz 1 de dano!`);
           valorDano = Math.max(0, valorDano - 1);
         }
         break;
+
+      case 'FEROZ':
+        if (tipo === 'ataque') {
+          contextoBase.log(`${carta.name} é FEROZ e causa 2 de dano extra!`);
+          valorDano += 2;
+        }
+        break;
+
+      case 'IMUNE':
+        if (tipo === 'defesa' && !carta._FoiAtacada) {
+          contextoBase.log(`${carta.name} é IMUNE e não recebe dano nesta rodada!`);
+          valorDano = 0;
+          carta._FoiAtacada = true;
+        }
+        break;
+
+      case 'VAMPIRICO':
+        if (tipo === 'ataque' && contextoBase?.curarJogador) {
+          const vidaRecuperada = Math.floor(valorDano / 2);
+          contextoBase.log(`${carta.name} recuperou ${vidaRecuperada} de vida!`);
+          contextoBase.modifyPlayerHP(vidaRecuperada);
+        }
+        break;
+
+      case 'ENFRAQUECER':
+        if (tipo === 'defesa' && contextoBase?.opponentField?.length > 0) {
+          for (const inimigo of contextoBase.opponentField) {
+            if (inimigo && typeof inimigo.atk === 'number') {
+              inimigo.atk = Math.max(0, inimigo.atk - 2); // Reduz o ataque, mas não abaixo de 0
+              contextoBase.log(`${carta.name} enfraqueceu ${inimigo.name}, reduzindo seu ATK em 2!`);
+              break; // Aplica apenas na primeira carta encontrada. Remova se quiser aplicar em todas.
+            }
+          }
+        }
+        break;
+
+
+      case 'ESCUDO':
+        if (tipo === 'defesa' && !carta._escudoUsado) {
+          valorDano = 0;
+          carta._escudoUsado = true;
+          contextoBase.log(`${carta.name} bloqueou completamente o ataque com ESCUDO!`);
+        }
+        break;
+
       // Adicione mais palavras-chave aqui
     }
   }
 
   return valorDano;
 }
+
 
 
 
@@ -594,6 +641,7 @@ function combat(attacker, defender, attackerIndex, defenderIndex) {
   log(`${attacker.name} ataca ${defender.name}`);
   let dano = attacker.atk;
   dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
+  dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
   defender.def -= dano;
 
 
@@ -955,7 +1003,6 @@ document.querySelectorAll('.opponent-slot').forEach((slot, index) => {
 
 
 async function startCombatPhase() {
-  console.log(playerField)
   ativarEfeitosDasCartas('combate');
 
   for (let i = 0; i < 3; i++) {
@@ -970,6 +1017,7 @@ async function startCombatPhase() {
 
       let dano = attacker.atk;
       dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
+      dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
       defender.def -= dano;
 
 
@@ -994,7 +1042,9 @@ async function startCombatPhase() {
 
       await animateAttack('player-field', i);
 
-      opponentHP -= attacker.atk;
+      let danoDireto = attacker.atk;
+      danoDireto = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', danoDireto);
+      opponentHP -= danoDireto;
       if (opponentHP <= 0) {
         opponentHP = 0;
         render();
@@ -1020,6 +1070,7 @@ async function startCombatPhase() {
     if (defender) {
       let dano = attacker.atk;
       dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
+      dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
       defender.def -= dano;
 
   
@@ -1122,7 +1173,10 @@ async function opponentTurn() {
   const flipped = {
     ...context,
     modifyPlayerHP: context.modifyOpponentHP,
-    modifyOpponentHP: context.modifyPlayerHP
+    modifyOpponentHP: context.modifyPlayerHP,
+    opponentField: context.playerField,
+    playerField: context.opponentField,
+    deck: context.opponentDeck,
   };
 
   // 2) Fusão (se possível)
@@ -1211,7 +1265,10 @@ async function opponentTurn() {
       if (def) {
         log(`Oponente (${atk.name}) ataca seu ${def.name}`);
         await animateAttack('opponent-field', i, 'player-field', i);
-        def.def -= atk.atk;
+        let dano = atk.atk;
+        dano = aplicarPalavrasChaveDuranteCombate(def, 'defesa', dano);
+        dano = aplicarPalavrasChaveDuranteCombate(atk, 'ataque', dano);
+        def.def -= dano;
         if (def.def <= 0) {
           grave.push(def);
           playerField[i] = null;
@@ -1222,7 +1279,9 @@ async function opponentTurn() {
       } else {
         log(`${atk.name} ataca diretamente!`);
         await animateAttack('opponent-field', i);
-        playerHP -= atk.atk;
+        let danoDireto = attacker.atk;
+        danoDireto = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', danoDireto);
+        playerHP -= danoDireto;
         if (playerHP <= 0) {
           playerHP = 0;
           render();
@@ -1570,6 +1629,8 @@ function showCardDetailsModal(card) {
         return 'expansao-hajimeru-basic';
       case 'Hajimeru (Avançado)':
         return 'expansao-hajimeru-advanced';
+      case 'Artefactia (Básico)':
+        return 'expansao-artefactia-basic';
     }
   }
   

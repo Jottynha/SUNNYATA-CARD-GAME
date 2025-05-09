@@ -413,6 +413,11 @@ h1 { margin-top: 20px; }
   font-weight: bold;
 }
 
+.expansao-artefactia-basic {
+  color: #0b213a;
+  font-weight: bold;
+}
+
 /* Modal - fundo escurecido */
 #effect-choice-modal {
   display: none;

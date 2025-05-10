@@ -974,4 +974,12 @@ h1 { margin-top: 20px; }
   }
 }
 
-
+.logo {
+  border-radius: 20px;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 100px; /* Ajuste o tamanho conforme necessário */
+  height: auto;
+  z-index: 1000; /* Para garantir que fique acima de outros elementos */
+}

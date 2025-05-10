@@ -7,6 +7,7 @@ let fusionField = null;
 let opponentField = [null, null, null]; // Slots do oponente
 const opponentMagicField = [null, null];
 let opponentFusionField = null;
+let DEBUG_MODE = true;
 let selectedCard = null; // Carta selecionada para combate
 let playerHP = 20;
 let opponentHP = 20;
@@ -25,6 +26,14 @@ let lastDrawnCard = null;
 let selectedDeck = {};
 let animacaoEntradaCampo = false;
 const MAX_DECK_SIZE = 20;
+const keywordColorMap = {
+  'ROBUSTO': 'gold',
+  'ENFRAQUECER': 'lightgreen',
+  'ESCUDO': 'gray',
+  'VAMPIRICO': 'red',
+  'FEROZ': 'orange',
+  'IMUNE': 'blue',
+};
 
 
 function createOpponentDeck() {
@@ -227,10 +236,9 @@ function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase
         break;
 
       case 'IMUNE':
-        if (tipo === 'defesa' && !carta._FoiAtacada) {
-          contextoBase.log(`${carta.name} é IMUNE e não recebe dano nesta rodada!`);
+        if (tipo === 'defesa') {
+          contextoBase.log(`${carta.name} é IMUNE e não recebe dano!`);
           valorDano = 0;
-          carta._FoiAtacada = true;
         }
         break;
 
@@ -308,7 +316,12 @@ function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase
   function selectCard(card) {
     const currentCount = selectedDeck[card.name] || 0;
     const totalCards = Object.values(selectedDeck).reduce((sum, count) => sum + count, 0);
-  
+
+    if (currentCount >= 4 && DEBUG_MODE) {
+      alert(`Você já adicionou 4 cópias da carta "${card.name}" ao deck.`);
+      return;
+    }
+
     if (totalCards >= MAX_DECK_SIZE) {
       alert('Seu deck já possui 20 cartas!');
       return;
@@ -424,7 +437,6 @@ function createEnemyCardElement(card, debug = false) {
   
   
 
-let DEBUG_MODE = false;
 
 document.addEventListener('keydown', e => {
   if (e.key === 'd') {
@@ -619,7 +631,19 @@ function createCardElement(card) {
     if (card.palavrasChave && card.palavrasChave.length > 0) {
       const keywords = document.createElement('div');
       keywords.classList.add('card-keywords');
-      keywords.textContent = card.palavrasChave.join(', ');
+      card.palavrasChave.forEach((palavra, index) => {
+      const span = document.createElement('span');
+      span.textContent = palavra;
+      
+      const cor = keywordColorMap[palavra] || 'white'; // branco se não estiver mapeado
+      span.style.color = cor;
+    
+      if (index < card.palavrasChave.length - 1) {
+        span.textContent += ', ';
+      }
+        keywords.appendChild(span);
+      });
+      
       cardElement.appendChild(keywords);
     }
     
@@ -1200,10 +1224,13 @@ async function opponentTurn() {
     ...context,
     modifyPlayerHP: context.modifyOpponentHP,
     modifyOpponentHP: context.modifyPlayerHP,
-    playerField: context.opponentField,
     opponentField: context.playerField,
-    deck: context.deck,
+    playerField: context.opponentField,
+    opponentGrave: context.playerGrave,
+    playerGrave: context.opponentGrave,
+    deck: context.opponentDeck,
   };
+  
 
   // 3) Fusão
   const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(Boolean));

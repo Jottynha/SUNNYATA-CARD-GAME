@@ -227,6 +227,7 @@ export const allCards = [
     description: 'Um ex-mercenário com poderes de tempo.',
     specialEffect: 'Num campo cheio, recebe +2 de DEF.',
     tipoInvocacao: 'normal',
+    palavrasChave: ['ENFRAQUECER','ESCUDO'],
     expansao: 'Hajimeru (Básico)', // Novo atributo
     effect: (self, context) => {
       if (context.playerCardsOnField >= 2 && context.fase === 'preparacao') {
@@ -283,16 +284,34 @@ export const allCards = [
     def: 2,
     img: 'cartas/Stolas.png',
     description: 'Um aristocrático carismático com poderes ocultos.',
-    specialEffect: 'Durante a fase de preparação, se houver 2 ou mais inimigos no campo, ele ganha +1 ATK e +1 DEF.',
+    specialEffect: 'Durante a fase de preparação, se houver 2 ou mais inimigos no campo, ele ganha +1 ATK e +1 DEF. Ou pode criar uma "A Chama".',
     tipoInvocacao: 'normal',
     expansao: 'Hajimeru (Básico)',
-    effect: (self, context) => {
-      if (context.fase === 'preparacao' && context.enemiesOnField >= 2) {
-        self.atk += 1;
-        self.def += 1;
-        context.log(`${self.name} manipula o caos ao seu favor! +1 ATK / +1 DEF`);
+    effectOptions: [
+      {
+        label: 'Efeito Passivo de Buff',
+        execute: (self, context) => {
+          if (context.fase === 'preparacao' && context.enemiesOnField >= 2) {
+            self.atk += 1;
+            self.def += 1;
+            context.log(`${self.name} manipula o caos ao seu favor! +1 ATK / +1 DEF`);
+          }
+        }
+      },
+      {
+        label: 'Conjurar A Chama',
+        execute: (self, context) => {
+          try {
+            const copia = allCards.find(c => c.name === "A Chama");
+            if (!copia) return null;
+            context.playerHand.push(copia);
+            context.log(`${self.name} conjurou uma cópia de A Chama!`);
+          } catch (e) {
+            context.log('Erro ao copiar "A Chama".');
+          }
+        }
       }
-    }
+    ]
   },
   {
     name: 'Santinho',
@@ -477,7 +496,7 @@ export const allCards = [
     tipo: 'criatura',
     subtipo: 'personagem',
     atk: 1,
-    def: 4,
+    def: 2,
     img: 'cartas/Vassago.png',
     description: 'Um homem bizarro que busca a Chama.',
     specialEffect: 'Ao entrar em campo, busca "A Chama" no deck e a adiciona à mão.',
@@ -509,21 +528,69 @@ export const allCards = [
     palavrasChave: [],
     effect: (self, context) => {
       if (context.fase === 'preparacao') {
-        const magias = context.deck.filter(carta => carta.tipo === 'magia');
+        // Considera todas as cartas mágicas existentes no jogo
+        const magias = allCards.filter(carta => carta.tipo === 'magia');
+  
         if (magias.length > 0) {
           const sorteada = magias[Math.floor(Math.random() * magias.length)];
-          const index = context.deck.indexOf(sorteada);
-          if (index !== -1) {
-            context.deck.splice(index, 1);
-            context.playerHand.push(sorteada);
-            context.log(`Você comprou a carta mágica: ${sorteada.name}`);
-          }
+  
+          // Clonar a carta para não modificar a original
+          const copia = JSON.parse(JSON.stringify(sorteada));
+          context.playerHand.push(copia);
+  
+          context.log(`"A Chama" gerou uma carta mágica aleatória: ${copia.name}`);
         } else {
-          context.log('Não há cartas mágicas restantes no deck.');
+          context.log('Não há cartas mágicas registradas no jogo.');
         }
       }
     }
+  },
+  {
+    name: 'Lin Lie',
+    tipo: 'criatura',
+    subtipo: 'personagem',
+    atk: 2,
+    def: 2,
+    img: 'cartas/Lin_Lie.png',
+    description: 'Um guerreiro disciplinado marcado pelo fogo espiritual. Sua fúria desperta quando cercado.',
+    tipoInvocacao: 'normal',
+    expansao: 'Artefactia (Básico)',
+    palavrasChave: ['FEROZ'],
+    specialEffect: 'Combustão Espiritual: Se Lin Lie estiver cercado por 2 ou mais inimigos, ele entra em estado de Combustão, ganhando +2 ATK por 1 turno. Golpe Flamejante: Lin Lie desfere um ataque fulminante contra um inimigo com DEF igual ou inferior ao seu ATK, eliminando-o instantaneamente do campo.',
+    effectOptions: [
+      {
+        label: 'Combustão Espiritual',
+        execute: (self, context) => {
+          const inimigosPerto = context.opponentField.filter(c => c !== null).length;
+          if (context.fase === 'preparacao' && inimigosPerto >= 2 && !self._combustaoAtivada) {
+            self.atk += 2;
+            self._combustaoAtivada = true;
+            context.log(`${self.name} entra em Combustão Espiritual! +2 ATK temporário.`);
+          }
+        }
+      },
+      {
+        label: 'Golpe Flamejante',
+        execute: (self, context) => {
+          const alvos = context.opponentField.filter(c => c && c.def <= self.atk);
+          if (alvos.length > 0) {
+            const alvo = alvos[0];
+            const index = context.opponentField.indexOf(alvo);
+            if (index !== -1) {
+              context.opponentField[index] = null;
+              context.opponentGrave.push(alvo);
+              context.log(`${self.name} desfere um Golpe Flamejante em ${alvo.name}, destruindo-o!`);
+            }
+          } else {
+            context.log(`${self.name} tentou o Golpe Flamejante, mas nenhum alvo era vulnerável.`);
+          }
+        }
+      }
+      
+    ]
   }
+  
+  
   
   
   

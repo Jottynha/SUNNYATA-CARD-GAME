@@ -341,10 +341,11 @@ export const allCards = [
     description: 'Uma guerreira intensa que protege seus aliados com fúria.',
     specialEffect: 'Quando invocada, todas as outras cartas aliadas ganham +1 DEF por este turno.',
     tipoInvocacao: 'normal',
+    palavrasChave: ['VAMPIRICO'],
     expansao: 'Hajimeru (Básico)',
     effect: (self, context) => {
       if (context.fase === 'preparacao') {
-        playerField.forEach(carta => {
+        context.playerField.forEach(carta => {
           if (carta && carta !== self) {
             carta.def += 1;
           }

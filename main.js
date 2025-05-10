@@ -189,6 +189,26 @@ function obterFusaoDisponivelEntre(cartas) {
 
 function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase) {
   if (!carta.palavrasChave) return valorDano;
+  contextoBase = {
+    deck: deck,
+    opponentField: opponentField,
+    playerField: playerField,
+    playerHP: playerHP,
+    opponentHP: opponentHP,
+    opponentGrave: opponentGrave,
+    playerGrave: grave,
+    enemiesOnField: opponentField.filter(c => c !== null).length,
+    playerCardsOnField: playerField.filter(c => c !== null).length,
+    deckSize: deck.length,
+    turn: turn,
+    playerHand: playerHand,
+    compra: canDrawThisTurn,
+    log: (message) => log(message),
+    permitirCompra: () => { canDrawThisTurn = true; },
+    modifyPlayerHP: (delta) => { playerHP += delta; },
+    modifyOpponentHP: (delta) => { opponentHP += delta; },
+    
+  };
 
   for (const palavra of carta.palavrasChave) {
     switch (palavra) {
@@ -215,7 +235,7 @@ function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase
         break;
 
       case 'VAMPIRICO':
-        if (tipo === 'ataque' && contextoBase?.curarJogador) {
+        if (tipo === 'ataque') {
           const vidaRecuperada = Math.floor(valorDano / 2);
           contextoBase.log(`${carta.name} recuperou ${vidaRecuperada} de vida!`);
           contextoBase.modifyPlayerHP(vidaRecuperada);
@@ -1159,31 +1179,37 @@ async function opponentTurn() {
   await new Promise(r => setTimeout(r, 800));
 
   // 1) Compra
-  if (opponentDeck.length) {
-    opponentHand.push(opponentDeck.pop());
+  if (opponentDeck.length > 0) {
+    const cartaComprada = opponentDeck.pop();
+    opponentHand.push(cartaComprada);
+    log(`Oponente comprou uma carta.`);
   }
 
-  // Contextos
+  // 2) Contexto
   const context = {
     fase: 'preparacao',
     modifyPlayerHP: v => { playerHP = Math.max(0, playerHP + v); },
     modifyOpponentHP: v => { opponentHP = Math.max(0, opponentHP + v); },
-    log
+    log,
+    playerField,
+    opponentField,
+    deck: opponentDeck,
   };
+
   const flipped = {
     ...context,
     modifyPlayerHP: context.modifyOpponentHP,
     modifyOpponentHP: context.modifyPlayerHP,
-    opponentField: context.playerField,
     playerField: context.opponentField,
-    deck: context.opponentDeck,
+    opponentField: context.playerField,
+    deck: context.deck,
   };
 
-  // 2) Fusão (se possível)
-  const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(c => c));
+  // 3) Fusão
+  const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(Boolean));
   if (fusaoBot && !opponentFusionField[0]) {
-    const resName = fusaoBot.resultado.name;
-    const idxSD  = specialDeck.findIndex(e => e.name === resName);
+    const resName = fusaoBot.resultado?.name;
+    const idxSD = specialDeck.findIndex(e => e.name === resName);
     if (idxSD !== -1) {
       specialDeck.splice(idxSD, 1);
       renderSpecialDeckUI();
@@ -1196,43 +1222,52 @@ async function opponentTurn() {
     }
   }
 
-  // 3) Invocação Normal PRIORITÁRIA
+  // 4) Invocação normal
   if (!invocacaoNormalFeitaOponente) {
     const criatura = escolherMelhorCriatura(opponentHand);
     if (criatura) {
-      opponentHand.splice(opponentHand.indexOf(criatura), 1);
+      const index = opponentHand.indexOf(criatura);
+      if (index !== -1) opponentHand.splice(index, 1);
+
       const livres = opponentField
-        .map((c,i) => c === null ? i : -1)
+        .map((c, i) => c === null ? i : -1)
         .filter(i => i !== -1);
-      if (livres.length) {
+
+      if (livres.length > 0) {
         let slot = livres[0];
-        for (let i of livres) {
+        for (const i of livres) {
           const pc = playerField[i];
-          if (pc && criatura.atk >= pc.def) { slot = i; break; }
+          if (pc && criatura.atk >= pc.def) {
+            slot = i;
+            break;
+          }
         }
         opponentField[slot] = criatura;
         invocacaoNormalFeitaOponente = true;
-        log(`Oponente invocou ${criatura.name} no slot ${slot+1}`);
+        log(`Oponente invocou ${criatura.name} no slot ${slot + 1}`);
         render(); await new Promise(r => setTimeout(r, 800));
       } else {
         opponentHand.push(criatura);
+        log(`Sem espaço no campo, ${criatura.name} retornou à mão do oponente.`);
       }
     }
   }
 
-  // 4) Uso de Magias e Equipamentos
+  // 5) Magias e equipamentos
   for (let i = opponentHand.length - 1; i >= 0; i--) {
     const card = opponentHand[i];
+    if (!card || typeof card !== 'object') continue;
+
     if (card.tipo === 'magia') {
-      opponentHand.splice(i,1);
+      opponentHand.splice(i, 1);
       if (card.subtipo === 'continua') {
         const slot = opponentMagicField.findIndex(s => s === null);
-        if (slot >= 0) {
+        if (slot !== -1) {
           opponentMagicField[slot] = card;
           log(`Oponente ativou magia contínua ${card.name}`);
         } else {
           grave.push(card);
-          log(`Sem espaço p/ contínua ${card.name}, vai ao cemitério`);
+          log(`Sem espaço para ${card.name}, enviada ao cemitério`);
         }
       } else {
         card.effect?.(card, flipped);
@@ -1240,9 +1275,8 @@ async function opponentTurn() {
         grave.push(card);
       }
       render(); await new Promise(r => setTimeout(r, 600));
-    }
-    else if (card.tipo === 'equipamento') {
-      opponentHand.splice(i,1);
+    } else if (card.tipo === 'equipamento') {
+      opponentHand.splice(i, 1);
       const tgt = opponentField.find(c => c && c.tipo === 'criatura');
       if (tgt) {
         tgt.equipamentos = tgt.equipamentos || [];
@@ -1252,49 +1286,53 @@ async function opponentTurn() {
         if (tgt.transformar?.condicao(tgt, flipped)) transformarCarta(tgt, flipped);
       } else {
         grave.push(card);
-        log(`Sem criatura p/ equipar ${card.name}, vai ao cemitério`);
+        log(`Sem alvo para ${card.name}, enviada ao cemitério`);
       }
       render(); await new Promise(r => setTimeout(r, 600));
     }
   }
 
-  // 5) Ataques
+  // 6) Ataques
   for (let i = 0; i < 3; i++) {
-    const atk = opponentField[i], def = playerField[i];
-    if (atk) {
-      if (def) {
-        log(`Oponente (${atk.name}) ataca seu ${def.name}`);
-        await animateAttack('opponent-field', i, 'player-field', i);
-        let dano = atk.atk;
-        dano = aplicarPalavrasChaveDuranteCombate(def, 'defesa', dano);
-        dano = aplicarPalavrasChaveDuranteCombate(atk, 'ataque', dano);
-        def.def -= dano;
-        if (def.def <= 0) {
-          grave.push(def);
-          playerField[i] = null;
-          log(`${def.name} destruído!`);
-        } else {
-          log(`${def.name} sobreviveu com DEF ${def.def}`);
-        }
+    const atk = opponentField[i];
+    const def = playerField[i];
+    if (!atk) continue;
+
+    if (def) {
+      log(`Oponente (${atk.name}) ataca seu ${def.name}`);
+      await animateAttack('opponent-field', i, 'player-field', i);
+
+      let dano = aplicarPalavrasChaveDuranteCombate(def, 'defesa', atk.atk);
+      dano = aplicarPalavrasChaveDuranteCombate(atk, 'ataque', dano);
+
+      def.def -= dano;
+      if (def.def <= 0) {
+        grave.push(def);
+        playerField[i] = null;
+        log(`${def.name} foi destruído!`);
       } else {
-        log(`${atk.name} ataca diretamente!`);
-        await animateAttack('opponent-field', i);
-        let danoDireto = attacker.atk;
-        danoDireto = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', danoDireto);
-        playerHP -= danoDireto;
-        if (playerHP <= 0) {
-          playerHP = 0;
-          render();
-          return alert('Você perdeu!'), restartGame();
-        }
+        log(`${def.name} sobreviveu com DEF ${def.def}`);
       }
-      render(); await new Promise(r => setTimeout(r, 600));
+    } else {
+      log(`${atk.name} ataca diretamente!`);
+      await animateAttack('opponent-field', i);
+
+      let danoDireto = atk.atk;
+      danoDireto = aplicarPalavrasChaveDuranteCombate(atk, 'ataque', danoDireto);
+
+      playerHP = Math.max(0, playerHP - danoDireto);
+      if (playerHP <= 0) {
+        render();
+        alert('Você perdeu!');
+        return restartGame();
+      }
     }
+    render(); await new Promise(r => setTimeout(r, 600));
   }
 
-  // 6) Limpeza de mágicas contínuas
-  opponentMagicField.forEach((c,i) => {
-    if (c && c.subtipo === 'continua') {
+  // 7) Verifica expiração de mágicas contínuas
+  opponentMagicField.forEach((c, i) => {
+    if (c?.subtipo === 'continua') {
       c.turnosRestantes--;
       if (c.turnosRestantes < 0) {
         grave.push(c);
@@ -1307,12 +1345,13 @@ async function opponentTurn() {
     }
   });
 
-  // Reset e finalização
+  // 8) Reset
   invocacaoNormalFeitaOponente = false;
   render();
   log('--- Turno do Oponente Encerrado ---');
   invocacaoNormalFeita = false;
 }
+
 
 
   

@@ -1560,6 +1560,42 @@ document.getElementById('end-prep-btn').addEventListener('click', async () => {
         carta.effect(carta, contextoBase);
       }
     });
+
+    for (const carta of playerField) {
+      if (carta != null) {
+        if (carta.def <= 0) {
+        const slotIndex = playerField.indexOf(carta);
+        const slotElement = document.querySelectorAll('#player-field .slot')[slotIndex];
+        slotElement.classList.add('destroyed');
+  
+        // Espera a animação terminar antes de remover a carta
+        setTimeout(() => {
+          grave.push(carta);
+          playerField[slotIndex] = null;
+          render();
+        }, 600); // Duração da animação
+        }
+      }
+      
+    }
+    for (const carta of opponentField) {
+      if (carta != null) {
+        if (carta.def <= 0) {
+          const slotIndex = opponentField.indexOf(carta);
+          const slotElement = document.querySelectorAll('#opponent-field .slot')[slotIndex];
+          slotElement.classList.add('destroyed');
+    
+          // Espera a animação terminar antes de remover a carta
+          setTimeout(() => {
+            grave.push(carta);
+            opponentField[slotIndex] = null;
+            render();
+          }, 600); // Duração da animação
+
+        }
+    }    
+  }
+
   }
 
   export function transformarCarta(carta, context) {

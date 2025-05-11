@@ -1,2 +1,2 @@
 # SUNNYATA-CARD-GAME
- Jogo de Carta do universo RPG Sunnyata.
+Se você está vendo essa mensagem, estamos em manutenção.

@@ -123,17 +123,19 @@ export const allCards = [
     tipoInvocacao: 'normal',
     expansao: 'Hajimeru (Básico)',
     effect: (self, context) => {
-      const tipos = ['defensiva', 'ofensiva', 'utilitaria'];
-      const escolha = tipos[Math.floor(Math.random() * tipos.length)];
-      const criatura = clonarCartaComEfeito(summonedCreatures[escolha]);
+      if (context.fase === 'preparacao') {
+        const tipos = ['defensiva', 'ofensiva', 'utilitaria'];
+        const escolha = tipos[Math.floor(Math.random() * tipos.length)];
+        const criatura = clonarCartaComEfeito(summonedCreatures[escolha]);
 
 
-      context.log(`Petrichor invoca ${criatura.name} (${escolha}).`);
-      context.invocarCriatura(criatura);
+        context.log(`Petrichor invoca ${criatura.name} (${escolha}).`);
+        context.invocarCriatura(criatura);
 
-      // Se a criatura invocada tiver efeito, aplicá-lo
-      if (typeof criatura.effect === 'function') {
-        criatura.effect(criatura, context);
+        // Se a criatura invocada tiver efeito, aplicá-lo
+        if (typeof criatura.effect === 'function') {
+          criatura.effect(criatura, context);
+        }
       }
     },
     fusoesPossiveis: [
@@ -551,7 +553,7 @@ export const allCards = [
     subtipo: 'personagem',
     atk: 7,
     def: 2,
-    img: 'cartas/Tonhao.png',
+    img: 'cartas/Tonhão.png',
     description: 'Um guerreiro imponente cuja força pura intimida os adversários.',
     specialEffect: 'Se Tonhão atacar, causa 1 de dano a todas as criaturas inimigas.',
     tipoInvocacao: 'normal',
@@ -570,73 +572,81 @@ export const allCards = [
   {
     name: 'Matilde',
     tipo: 'criatura',
-    subtipo: 'artífice',
+    subtipo: 'personagem',
     atk: 3,
     def: 4,
     img: 'cartas/Matilde.png',
     description: 'Uma engenheira ciborgue que atira lasers analíticos.',
-    specialEffect: 'Pode atacar duas vezes por turno, mas cada ataque divide seu ATK pela metade (arredonda para baixo).',
+    specialEffect: 'Pode disparar um laser para causar dano ao oponente diretamente ou bufar-se em ATK.',
     tipoInvocacao: 'normal',
-    expansao: 'Artefactia (Avançado)',
+    expansao: 'Artefactia (Básico)',
     effectOptions: [
       {
         label: 'Tiro Preciso',
         execute: (self, context) => {
-          if (!self._atacouEstaRodada) {
-            const dano = Math.floor(self.atk / 2);
+            const dano = Math.floor(self.atk * 2);
             context.modifyOpponentHP(-dano);
-            self._atacouEstaRodada = true;
             context.log(`${self.name} dispara seu laser preciso e causa ${dano} de dano!`);
-          }
         }
       },
       {
-        label: 'Tiro Rápido',
+        label: 'Braço Cibernético',
         execute: (self, context) => {
-          if (self._atacouEstaRodada) {
-            const dano = Math.floor(self.atk / 2);
-            context.modifyOpponentHP(-dano);
-            delete self._atacouEstaRodada;
-            context.log(`${self.name} dispara novamente e causa mais ${dano} de dano!`);
-          }
+            self.atk *= 2;
+            context.log(`${self.name} se fortalece e recebe mais ${self.atk} de dano!`);
         }
       }
     ]
   },
   {
-    name: 'Kaya, a Sentinela',
+    name: 'Kaya',
     tipo: 'criatura',
-    subtipo: 'cavaleira',
+    subtipo: 'personagem',
     atk: 4,
-    def: 6,
+    def: 2,
     img: 'cartas/Kaya.png',
     description: 'Uma guardiã implacável, mestre em táticas defensivas.',
     specialEffect: 'Quando Kaya entra em campo, bloqueia o próximo ataque dirigido a outra criatura aliada.',
     tipoInvocacao: 'especial',
-    expansao: 'Hajimeru (Avançado)',
+    expansao: 'Artefactia (Básico)',
     effect: (self, context) => {
-      if (context.fase === 'invocacao' && context.ultimoInvocado === self) {
-        context.temBloqueioProximoAtaque = true;
-        context.log(`${self.name} ergue seu escudo e protege seu aliado do próximo ataque!`);
+      if (context.fase === 'preparacao') {
+        const protegido = context.playerField.find(carta => carta && carta !== self && carta.tipo === 'criatura');
+
+        if (protegido) {
+          if (!Array.isArray(protegido.palavrasChave)) {
+            protegido.palavrasChave = [];
+          }
+
+          if (!protegido.palavrasChave.includes('ESCUDO')) {
+            protegido.palavrasChave.push('ESCUDO');
+            context.log(`${self.name} ergue seu escudo e protege ${protegido.name} do próximo ataque!`);
+          } else {
+            context.log(`${protegido.name} já está protegido por um escudo.`);
+          }
+        } else {
+          context.log(`${self.name} queria proteger alguém, mas não há aliados no campo.`);
+        }
       }
     }
+
   },
   {
     name: 'Jotum',
     tipo: 'criatura',
-    subtipo: 'gigante',
-    atk: 9,
-    def: 2,
+    subtipo: 'personagem',
+    atk: 1,
+    def: 1,
     img: 'cartas/Jotum.png',
-    description: 'Um ser colossal cujos passos tremem a terra.',
-    specialEffect: 'Se Jotum for atacado, reflete metade do dano (arredondado para baixo) ao atacante.',
+    description: 'Um ser "colossal" cujos passos talvez tremam a terra.',
+    specialEffect: 'A cada turno, Jotum cresce exponencialmente.',
     tipoInvocacao: 'normal',
-    expansao: 'Artefactia (Avançado)',
+    expansao: 'Artefactia (Básico)',
     effect: (self, context) => {
-      if (context.evento === 'sofreuDano' && context.vitima === self) {
-        const refletido = Math.floor(context.ultimaQuantiaDano / 2);
-        context.devolverDano(refletido);
-        context.log(`${self.name} tremeu de raiva e refletiu ${refletido} de dano!`);
+      if (context.fase === 'combate') {
+        self.atk *= 2;
+        self.def *= 2;
+        context.log(`${self.name} tremeu de raiva e cresceu!`);
       }
     }
   },
@@ -715,13 +725,13 @@ function clonarCartaComEfeito(cartaOriginal) {
 
 const summonedCreatures = {
   defensiva: {
-    name: 'Ramsés',
+    name: 'Nala',
     tipo: 'criatura',
     subtipo: 'espírito',
     atk: 1,
     def: 5,
-    img: 'cartas/Ramses.png',
-    description: 'Um espírito ancestral que protege com sua névoa densa.',
+    img: 'cartas/Nala.png',
+    description: 'Uma pequena tecelã tímida que protege.',
     tipoInvocacao: 'invocada',
     expansao: 'Hajimeru (Básico)',
     effect: () => {} // Sem efeito especial
@@ -744,7 +754,7 @@ const summonedCreatures = {
     subtipo: 'xamã',
     atk: 1,
     def: 2,
-    img: 'cartas/AnciaoOrvalho.png',
+    img: 'cartas/Toupeira.png',
     description: 'Concede visão e sabedoria ao seu invocador.',
     tipoInvocacao: 'invocada',
     expansao: 'Hajimeru (Básico)',

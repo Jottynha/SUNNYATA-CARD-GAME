@@ -1702,20 +1702,34 @@ function showCardDetailsModal(card) {
   
   
   
-const modal = document.createElement('div');
-modal.id = 'modal';
-document.body.appendChild(modal);
+  const modal = document.createElement('div');
+  modal.id = 'modal';
+  modal.classList.add('modal');
+  document.body.appendChild(modal);
+  function showCards(title, cards) {
+    modal.innerHTML = `
+      <button onclick="document.getElementById('modal').style.display='none'">Fechar</button>
+        <h3>${title}</h3>
+        <ul>
+          ${cards.length ? cards.map(card => `<li>${card.name}</li>`).join('') : '<li>Vazio</li>'}
+        </ul>
+      </div>
+    `;
+    modal.style.display = 'block';
+  }
 
-function showCards(title, cards) {
-  modal.innerHTML = `
-    <h3>${title}</h3>
-    <ul>
-      ${cards.length ? cards.map(card => `<li>${card.name}</li>`).join('') : '<li>Vazio</li>'}
-    </ul>
-    <button onclick="document.getElementById('modal').style.display='none'">Fechar</button>
-  `;
-  modal.style.display = 'block';
-}
+document.addEventListener('click', function (event) {
+  // Seleciona todos os modais visíveis
+  const modals = document.querySelectorAll('.modal, #modal');
+
+  modals.forEach(modal => {
+    const content = modal.querySelector('.modal-content');
+
+    if (modal.style.display !== 'none' && content && !content.contains(event.target)) {
+      modal.style.display = 'none';
+    }
+  });
+});
 
 // Eventos de clique
 document.getElementById('player-deck').addEventListener('click', () => showCards('Deck (Você)', deck));
@@ -1724,6 +1738,8 @@ document.getElementById('opponent-deck').addEventListener('click', () => showCar
 document.getElementById('opponent-grave').addEventListener('click', () => showCards('Cemitério (Oponente)', opponentGrave));
 document.getElementById('special-deck-panel')
         .addEventListener('click', () => showCards('Deck Especial', specialDeck.map(e=>e.card)));  
+    
+        
 
 document.getElementById('btn-regras').addEventListener('click', () => {
   document.getElementById('modal-regras').style.display = 'block';

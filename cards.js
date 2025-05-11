@@ -546,6 +546,101 @@ export const allCards = [
     }
   },
   {
+    name: 'Tonhão',
+    tipo: 'criatura',
+    subtipo: 'personagem',
+    atk: 7,
+    def: 2,
+    img: 'cartas/Tonhao.png',
+    description: 'Um guerreiro imponente cuja força pura intimida os adversários.',
+    specialEffect: 'Se Tonhão atacar, causa 1 de dano a todas as criaturas inimigas.',
+    tipoInvocacao: 'normal',
+    expansao: 'Artefactia (Básico)',
+    effect: (self, context) => {
+      if (context.fase === 'combate') {
+        context.opponentField.forEach((carta, idx) => {
+          if (carta) {
+            context.opponentField[idx].def -= 1;
+          }
+        });
+        context.log(`${self.name} pisa tão forte que atinge todas as criaturas inimigas (-1 DEF)!`);
+      }
+    }
+  },
+  {
+    name: 'Matilde',
+    tipo: 'criatura',
+    subtipo: 'artífice',
+    atk: 3,
+    def: 4,
+    img: 'cartas/Matilde.png',
+    description: 'Uma engenheira ciborgue que atira lasers analíticos.',
+    specialEffect: 'Pode atacar duas vezes por turno, mas cada ataque divide seu ATK pela metade (arredonda para baixo).',
+    tipoInvocacao: 'normal',
+    expansao: 'Artefactia (Avançado)',
+    effectOptions: [
+      {
+        label: 'Tiro Preciso',
+        execute: (self, context) => {
+          if (!self._atacouEstaRodada) {
+            const dano = Math.floor(self.atk / 2);
+            context.modifyOpponentHP(-dano);
+            self._atacouEstaRodada = true;
+            context.log(`${self.name} dispara seu laser preciso e causa ${dano} de dano!`);
+          }
+        }
+      },
+      {
+        label: 'Tiro Rápido',
+        execute: (self, context) => {
+          if (self._atacouEstaRodada) {
+            const dano = Math.floor(self.atk / 2);
+            context.modifyOpponentHP(-dano);
+            delete self._atacouEstaRodada;
+            context.log(`${self.name} dispara novamente e causa mais ${dano} de dano!`);
+          }
+        }
+      }
+    ]
+  },
+  {
+    name: 'Kaya, a Sentinela',
+    tipo: 'criatura',
+    subtipo: 'cavaleira',
+    atk: 4,
+    def: 6,
+    img: 'cartas/Kaya.png',
+    description: 'Uma guardiã implacável, mestre em táticas defensivas.',
+    specialEffect: 'Quando Kaya entra em campo, bloqueia o próximo ataque dirigido a outra criatura aliada.',
+    tipoInvocacao: 'especial',
+    expansao: 'Hajimeru (Avançado)',
+    effect: (self, context) => {
+      if (context.fase === 'invocacao' && context.ultimoInvocado === self) {
+        context.temBloqueioProximoAtaque = true;
+        context.log(`${self.name} ergue seu escudo e protege seu aliado do próximo ataque!`);
+      }
+    }
+  },
+  {
+    name: 'Jotum',
+    tipo: 'criatura',
+    subtipo: 'gigante',
+    atk: 9,
+    def: 2,
+    img: 'cartas/Jotum.png',
+    description: 'Um ser colossal cujos passos tremem a terra.',
+    specialEffect: 'Se Jotum for atacado, reflete metade do dano (arredondado para baixo) ao atacante.',
+    tipoInvocacao: 'normal',
+    expansao: 'Artefactia (Avançado)',
+    effect: (self, context) => {
+      if (context.evento === 'sofreuDano' && context.vitima === self) {
+        const refletido = Math.floor(context.ultimaQuantiaDano / 2);
+        context.devolverDano(refletido);
+        context.log(`${self.name} tremeu de raiva e refletiu ${refletido} de dano!`);
+      }
+    }
+  },
+  {
     name: 'Lin Lie',
     tipo: 'criatura',
     subtipo: 'personagem',

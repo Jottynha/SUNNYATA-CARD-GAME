@@ -16,6 +16,18 @@
   <!-- Botão para abrir as regras -->
   <button id="btn-regras" class="btn-regras">Regras do Jogo</button>
 
+  <!-- Botão para abrir o modal de sacrificio -->
+  <div id="sacrificioModal" style="display:none; position:fixed; top:20%; left:50%; transform:translateX(-50%);
+ background:#fff; padding:20px; border:2px solid black; z-index:1000;">
+    <h3>Escolha as cartas para sacrificar</h3>
+    <form id="sacrificioForm"></form>
+    <button onclick="confirmarSacrificios()">Confirmar</button>
+    <button onclick="fecharModal()">Cancelar</button>
+  </div>
+  <div id="modalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.5); z-index:999;"></div>
+
+
   <!-- Modal de Regras -->
   <div id="modal-regras" class="modal">
     <div class="modal-conteudo">

@@ -13,6 +13,7 @@ let playerHP = 20;
 let opponentHP = 20;
 let canDrawThisTurn = true;
 let invocacaoNormalFeita = false; // controla a invocação normal no turno
+let invocacaoSacrificioFeita = false;
 let turn = 0;
 let playerHand = []; // cartas na mão
 let selectedHandCard = null
@@ -24,6 +25,7 @@ let grave = [];
 let opponentGrave = [];
 let lastDrawnCard = null;
 let selectedDeck = {};
+let sacrificiosSelecionadosCallback = null;
 let animacaoEntradaCampo = false;
 const MAX_DECK_SIZE = 20;
 const keywordColorMap = {
@@ -719,6 +721,37 @@ document.querySelectorAll('.player-slot').forEach((slot, index) => {
   });
 });
 
+function getSacrificiosDisponiveis() {
+  const sacrificaveisCampo = playerField.filter(c => c !== null);
+  const sacrificaveisMao = playerHand.filter(c => c.tipo === 'criatura');
+  return [...sacrificaveisCampo, ...sacrificaveisMao];
+}
+
+function realizarInvocacaoCreature(index, carta, isEspecial) {
+  playerField[index] = carta;
+  const i = playerHand.indexOf(carta);
+  if (i !== -1) playerHand.splice(i, 1);
+  selectedHandCard = null;
+
+  if (!isEspecial && (carta.nivel || 1) <= 4) {
+    invocacaoNormalFeita = true;
+    log('Você realizou uma invocação normal!');
+  } else if (!isEspecial) {
+    log(`Você invocou ${carta.nivel}-★ com sacrifício(s)!`);
+  } else {
+    log('Você realizou uma invocação especial!');
+  }
+
+  if (!carta.efeitoAtivadoPreparacao) {
+    ativarEfeitosDasCartas('preparacao', carta);
+    carta.efeitoAtivadoPreparacao = true;
+  }
+
+  animacaoEntradaCampo = true;
+  render();
+  animacaoEntradaCampo = false;
+}
+
 
 document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
   slot.addEventListener('click', () => {
@@ -728,47 +761,86 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
       return;
     }
 
-    if (selectedHandCard.tipo === 'criatura') {
-      // Invocação de criatura
-      if (playerField[index]) {
-        log('Este slot já está ocupado!');
-        return;
-      }
-    
-      const isEspecial = selectedHandCard.tipoInvocacao === 'especial';
-    
-      if (!isEspecial && invocacaoNormalFeita) {
-        log('Você já fez uma invocação normal neste turno!');
-        return;
-      }
-    
-      if (isEspecial && selectedHandCard.podeSerInvocada && !selectedHandCard.podeSerInvocada(playerField)) {
-        log('Condição para invocação especial não foi satisfeita!');
-        return;
-      }
-    
-      if (isEspecial) {
-        log('Você realizou uma invocação especial!');
-      }
-    
-      // Executa a invocação
-      playerField[index] = selectedHandCard;
-      const i = playerHand.indexOf(selectedHandCard);
-      if (i !== -1) playerHand.splice(i, 1);
-      selectedHandCard = null;
-    
-      if (!isEspecial) invocacaoNormalFeita = true;
-    
-      if (!playerField[index].efeitoAtivadoPreparacao) {
-        ativarEfeitosDasCartas('preparacao', playerField[index]);
-        playerField[index].efeitoAtivadoPreparacao = true;
-      }
-    
-      animacaoEntradaCampo = true;
-      render();
-      animacaoEntradaCampo = false;
+   if (selectedHandCard.tipo === 'criatura') {
+    if (playerField[index]) {
+      log('Este slot já está ocupado!');
       return;
     }
+
+    const isEspecial = selectedHandCard.tipoInvocacao === 'especial';
+    const nivel = selectedHandCard.nivel || 1;
+
+    let sacrificiosNecessarios = 0;
+    if (nivel >= 5 && nivel <= 6) {
+      sacrificiosNecessarios = 1;
+    } else if (nivel >= 7) {
+      sacrificiosNecessarios = 2;
+    }
+
+    // Invocação especial: verifica condição personalizada
+    if (isEspecial && selectedHandCard.podeSerInvocada && !selectedHandCard.podeSerInvocada(playerField)) {
+      log('Condição para invocação especial não foi satisfeita!');
+      return;
+    }
+
+    // Impede múltiplas invocações normais de nível 4 ou menos
+    if (!isEspecial && nivel <= 4 && invocacaoNormalFeita) {
+      log('Você já fez uma invocação normal neste turno!');
+      return;
+    }
+
+    // Verifica se há necessidade de sacrifícios
+    if (sacrificiosNecessarios > 0) {
+      if (invocacaoSacrificioFeita) {
+        log('Você já fez uma invocação por sacrifício neste turno!');
+        return;
+      }
+
+      const disponiveis = getSacrificiosDisponiveis()
+      .filter(c => c !== selectedHandCard)  // evita que a carta sendo invocada apareça
+      .map(c => ({
+        referencia: c,
+        origem: playerField.includes(c) ? 'campo' : 'mão',
+        name: c.name
+      }));
+
+
+      if (disponiveis.length < sacrificiosNecessarios) {
+        log(`Você precisa de ${sacrificiosNecessarios} sacrifício(s), mas só tem ${disponiveis.length} disponível(is).`);
+        return;
+      }
+
+      mostrarModalSacrificios(disponiveis, sacrificiosNecessarios, (sacrificiosSelecionados) => {
+        // Remove os sacrifícios do campo ou da mão
+        sacrificiosSelecionados.forEach(sacrificio => {
+          const carta = sacrificio.referencia;
+
+          if (sacrificio.origem === 'campo') {
+            const idx = playerField.indexOf(carta);
+            if (idx !== -1) playerField[idx] = null;
+          } else {
+            const idx = playerHand.indexOf(carta);
+            if (idx !== -1) playerHand.splice(idx, 1);
+          }
+
+          grave.push(carta);
+          log(`${carta.name} foi sacrificado!`);
+        });
+
+
+        // Após sacrifícios, invoca a criatura
+        realizarInvocacaoCreature(index, selectedHandCard, isEspecial);
+        invocacaoSacrificioFeita = true;
+      });
+
+      return; // Aguarda interação do jogador com o modal
+    }
+
+    // Caso não haja necessidade de sacrifícios, invoca diretamente
+    realizarInvocacaoCreature(index, selectedHandCard, isEspecial);
+  }
+
+
     if (selectedHandCard.tipo === 'equipamento') {
       const criatura = playerField[index];
     
@@ -1377,6 +1449,7 @@ async function opponentTurn() {
   render();
   log('--- Turno do Oponente Encerrado ---');
   invocacaoNormalFeita = false;
+  invocacaoSacrificioFeita = false;
 }
 
 
@@ -1637,7 +1710,12 @@ document.getElementById('end-prep-btn').addEventListener('click', async () => {
   modal.style.display = 'flex';
 }
 
-  
+function getTextoInvocacaoPorNivel(nivel) {
+  if (nivel <= 4) return 'Normal';
+  if (nivel <= 6) return 'Requer 1 Sacrifício';
+  return 'Requer 2 Sacrifícios';
+}
+
   
 function showCardDetailsModal(card) {
   const modal = document.getElementById('card-details-modal');
@@ -1693,6 +1771,8 @@ function showCardDetailsModal(card) {
     html += `
       <p><strong>Tipo:</strong> Criatura ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
       <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
+      <p><strong>Nível:</strong> ${'★'.repeat(card.nivel || 1)} (${card.nivel || 1})</p>
+      <p><strong>Requisitos de Invocação:</strong> ${getTextoInvocacaoPorNivel(card.nivel || 1)}</p>
       <p><strong>ATK:</strong> ${card.atk}</p>
       <p><strong>DEF:</strong> ${card.def}</p>
       <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
@@ -1718,6 +1798,62 @@ function showCardDetailsModal(card) {
   modalContent.innerHTML = html;
   modal.style.display = 'block';
 }
+
+function mostrarModalSacrificios(cartasDisponiveis, quantidadeNecessaria, callback) {
+  const form = document.getElementById('sacrificioForm');
+  form.innerHTML = ''; // Limpa
+
+  cartasDisponiveis.forEach((carta, idx) => {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `sacrificio-${idx}`;
+    checkbox.value = idx;
+    checkbox.name = 'sacrificio';
+
+    const label = document.createElement('label');
+    label.htmlFor = checkbox.id;
+    label.textContent = `${carta.name} (${carta.origem})`; // você pode definir `origem = 'campo'` ou `origem = 'mão'`
+
+    const div = document.createElement('div');
+    div.appendChild(checkbox);
+    div.appendChild(label);
+    form.appendChild(div);
+  });
+
+  sacrificiosSelecionadosCallback = () => {
+    const selecionados = [];
+    const checkboxes = form.querySelectorAll('input[name="sacrificio"]:checked');
+    checkboxes.forEach(cb => {
+      const carta = cartasDisponiveis[cb.value];
+      selecionados.push(carta);
+    });
+
+    if (selecionados.length !== quantidadeNecessaria) {
+      log(`Você precisa escolher exatamente ${quantidadeNecessaria} carta(s).`);
+      return;
+    }
+
+    fecharModal();
+    callback(selecionados);
+  };
+
+  document.getElementById('sacrificioModal').style.display = 'block';
+  document.getElementById('modalOverlay').style.display = 'block';
+}
+
+function confirmarSacrificios() {
+  if (sacrificiosSelecionadosCallback) {
+    sacrificiosSelecionadosCallback();
+  }
+}
+
+function fecharModal() {
+  document.getElementById('sacrificioModal').style.display = 'none';
+  document.getElementById('modalOverlay').style.display = 'none';
+}
+
+window.fecharModal = fecharModal;
+window.confirmarSacrificios = confirmarSacrificios;
 
   
   function capitalize(str) {

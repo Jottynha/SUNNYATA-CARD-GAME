@@ -1,4 +1,38 @@
 import { transformarCarta } from './main.js';
+export const linkFusions = [
+  {
+    name: 'Link-Petrichor-Helios',
+    materiais: ['Martin', 'Helios'],    // nomes exatos das cartas requeridas
+    resultado: {
+      name: 'Martin-Helios Link',
+      tipo: 'criatura',
+      subtipo: 'Link',
+      atk: 7,
+      def: 7,
+      img: 'cartas/LinkPetrichorHelios.png',
+      description: 'Link Fusion de Petrichor + Helios',
+      tipoInvocacao: 'especial',
+      effect: (self, ctx) => { /* ... */ }
+    }
+  },
+  {
+    name: 'Link-Martinke-Sasuke',
+    materiais: ['Martin', 'Sasuke'],
+    resultado: {
+      name: 'Martinke-Sasuke Link',
+      tipo: 'criatura',
+      subtipo: 'Link',
+      atk: 8,
+      def: 6,
+      img: 'cartas/LinkMartinkeSasuke.png',
+      description: 'Link Fusion de Martin + Sasuke',
+      tipoInvocacao: 'especial',
+      effect: (self, ctx) => { /* ... */ }
+    }
+  }
+  // …adicione quantos quiser
+];
+
 export const allCards = [
   {
     name: 'Martin',

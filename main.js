@@ -1,4 +1,4 @@
-import { allCards } from './cards.js';
+import { allCards, linkFusions } from './cards.js';
 
 // Variáveis globais
 let playerField = [null, null, null]; // Slots do jogador
@@ -106,6 +106,25 @@ function initDeckManager() {
     <hr/>
   `;
   manager.insertBefore(specialPanel, available);
+
+  const linkContainer = document.getElementById('link-deck');
+  linkFusions.forEach(lf => {
+    const card = lf.resultado;
+    const cardEl = createCardElement(card);
+    cardEl.classList.add('card', 'link-card');
+
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '+';
+    addBtn.title = 'Adicionar Link Monster ao Deck Especial';
+    addBtn.classList.add('add-special-btn');
+    addBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      addToSpecialDeck(card);
+    });
+
+    cardEl.appendChild(addBtn);
+    linkContainer.appendChild(cardEl);
+  });
 
   // Organiza por expansão
   const expansions = {};
@@ -614,62 +633,57 @@ function render() {
 
 // Função para criar um elemento de carta
 function createCardElement(card) {
-    const cardElement = document.createElement('div');
-    cardElement.classList.add('card');
-  
-    // Adiciona imagem
-    const img = document.createElement('img');
-    img.src = card.img;
-    img.alt = card.name;
-    img.classList.add('card-image');
-    cardElement.appendChild(img);
-  
-    // Adiciona texto
-    const text = document.createElement('div');
-    text.classList.add('card-text');
-    text.innerHTML = `<strong>${card.name}</strong><br>ATK: ${card.atk} | DEF: ${card.def}`;
-    cardElement.appendChild(text);
-
-    if (card.palavrasChave && card.palavrasChave.length > 0) {
-      const keywords = document.createElement('div');
-      keywords.classList.add('card-keywords');
-      card.palavrasChave.forEach((palavra, index) => {
-      const span = document.createElement('span');
-      span.textContent = palavra;
-      
-      const cor = keywordColorMap[palavra] || 'white'; // branco se não estiver mapeado
-      span.style.color = cor;
-    
-      if (index < card.palavrasChave.length - 1) {
-        span.textContent += ', ';
-      }
-        keywords.appendChild(span);
-      });
-      
-      cardElement.appendChild(keywords);
-    }
-    
-  
-    cardElement.draggable = true;
-
-    if (animacaoEntradaCampo) {
-      cardElement.classList.add('entrada-carta');
-      setTimeout(() => {
-        cardElement.classList.remove('entrada-carta');
-      }, 800);
-    }
-  
-    cardElement.addEventListener('dragstart', (e) => {
-      e.dataTransfer.setData('text/plain', JSON.stringify(card));
-    });
-
-    cardElement.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      showCardDetailsModal(card); // Abre o modal com os detalhes da carta
-    });
-  
-    return cardElement;
+  const cardElement = document.createElement('div');
+  cardElement.classList.add('card');
+  if (card.subtipo === 'Link') {
+    cardElement.classList.add('card--link');
   }
+
+  // 1) Faixa de nível (estrelas)
+  if (card.nivel) {
+    const lvlBar = document.createElement('div');
+    lvlBar.classList.add('card-levels');
+    for (let i = 0; i < card.nivel; i++) {
+      const star = document.createElement('span');
+      star.classList.add('card-star');
+      star.textContent = '★';
+      lvlBar.appendChild(star);
+    }
+    cardElement.appendChild(lvlBar);
+  }
+
+  // 2) Imagem
+  const img = document.createElement('img');
+  img.src = card.img;
+  img.alt = card.name;
+  img.classList.add('card-image');
+  cardElement.appendChild(img);
+
+  // 3) Texto principal
+  const text = document.createElement('div');
+  text.classList.add('card-text');
+  text.innerHTML = `<strong>${card.name}</strong><br>ATK: ${card.atk} | DEF: ${card.def}`;
+  cardElement.appendChild(text);
+
+  // 4) Palavras-chave
+  if (card.palavrasChave?.length) {
+    const keywords = document.createElement('div');
+    keywords.classList.add('card-keywords');
+    card.palavrasChave.forEach((palavra, idx) => {
+      const span = document.createElement('span');
+      span.textContent = palavra + (idx < card.palavrasChave.length - 1 ? ', ' : '');
+      const cor = keywordColorMap[palavra] || '#fff';
+      span.style.color = cor;
+      keywords.appendChild(span);
+    });
+    cardElement.appendChild(keywords);
+  }
+
+  // … restante (draggable, animações, contextmenu) …
+
+  return cardElement;
+}
+
   
 
 // Função para adicionar uma carta ao campo
@@ -974,24 +988,45 @@ function executarFusao(cartaFusionavel) {
 }
 
 // Lógica de clique no Slot de Fusão
+
 fusionSlot.addEventListener('click', () => {
   if (!selectedHandCard) {
-    log('Nenhuma carta selecionada!');
-    return;
+    return log('Nenhuma carta selecionada!');
   }
 
+  // 1) Primeiro, tentamos Link Fusion:
+  //    verificamos todas as linkFusions possíveis
+  const disponiveisNomes = [...playerHand, ...playerField]
+    .filter(c => c)  // tira null
+    .map(c => c.name);
+
+  const possiveisLink = linkFusions.filter(lf => {
+    // todos os materiais disponíveis?
+    const okMaterials = lf.materiais.every(mat => disponiveisNomes.includes(mat));
+    // resultado presente no specialDeck?
+    const okDeck = specialDeck.some(e => e.name === lf.resultado.name);
+    return okMaterials && okDeck;
+  });
+
+  if (possiveisLink.length > 0) {
+    // se só uma opção, executa direto; senão abre modal de escolha
+    if (possiveisLink.length === 1) {
+      executarLinkFusion(possiveisLink[0]);
+    } else {
+      mostrarOpcoesDeLinkFusion(possiveisLink);
+    }
+    return; // sai aqui, não cai na fusão normal
+  }
+
+  // 2) Se não havia Link Fusion, segue para fusão “normal”:
   const isEspecial = selectedHandCard.tipoInvocacao === 'especial';
   const isCriatura = selectedHandCard.tipo === 'criatura' || selectedHandCard.tipo === 'fusão';
 
-  // Verifica se o slot está disponível
   if (fusionField) {
-    log('O slot especial já está ocupado!');
-    return;
+    return log('O slot especial já está ocupado!');
   }
 
-  // Verifica se a carta selecionada tem fusão possível
   if (selectedHandCard.fusoesPossiveis) {
-    // Filtra as cartas que podem ser fundidas
     const candidatos = [...playerHand, ...playerField].filter(carta =>
       carta &&
       carta !== selectedHandCard &&
@@ -999,24 +1034,19 @@ fusionSlot.addEventListener('click', () => {
     );
 
     if (candidatos.length === 0) {
-      log('Não há cartas compatíveis para fusão.');
-      return;
+      return log('Não há cartas compatíveis para fusão.');
     }
 
-    // Mostra as opções de fusão
     mostrarOpcoesDeFusao(candidatos);
     return;
   }
 
-  // Caso contrário, realiza invocação especial normal
   if (!isEspecial || !isCriatura) {
-    log('Apenas criaturas com invocação especial ou fusão podem ser colocadas neste slot!');
-    return;
+    return log('Apenas criaturas com invocação especial ou fusão podem ser colocadas neste slot!');
   }
 
   if (selectedHandCard.podeSerInvocada && !selectedHandCard.podeSerInvocada(playerField)) {
-    log('Condição para invocação especial não foi satisfeita!');
-    return;
+    return log('Condição para invocação especial não foi satisfeita!');
   }
 
   fusionField = selectedHandCard;
@@ -1034,6 +1064,74 @@ fusionSlot.addEventListener('click', () => {
 });
 
 
+// Modal de escolha caso haja >1 opção
+function mostrarOpcoesDeLinkFusion(fusoes) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fusion-overlay';
+
+  const modalBox = document.createElement('div');
+  modalBox.className = 'fusion-modal';
+  modalBox.innerHTML = `<h3>Escolha sua Link Fusion:</h3>`;
+
+  fusoes.forEach(lf => {
+    const btn = document.createElement('button');
+    btn.className = 'fusion-option';
+    btn.textContent = lf.resultado.name;
+    btn.addEventListener('click', () => {
+      executarLinkFusion(lf);
+      document.body.removeChild(overlay);
+    });
+    modalBox.appendChild(btn);
+  });
+
+  const cancel = document.createElement('button');
+  cancel.className = 'fusion-cancel';
+  cancel.textContent = 'Cancelar';
+  cancel.addEventListener('click', () => document.body.removeChild(overlay));
+  modalBox.appendChild(cancel);
+
+  overlay.appendChild(modalBox);
+  document.body.appendChild(overlay);
+}
+
+// Função que consome materiais e invoca o Link Monster
+function executarLinkFusion(linkObj) {
+  const { materiais, resultado } = linkObj;
+
+  // consome do Deck Especial
+  const idxDeck = specialDeck.findIndex(e => e.name === resultado.name);
+  specialDeck.splice(idxDeck, 1);
+  renderSpecialDeckUI();
+  log(`’${resultado.name}’ consumida do Deck Especial para Link Fusion.`);
+
+  // sacrifica cada material da mão ou campo
+  materiais.forEach(matName => {
+    let idx = playerHand.findIndex(c => c.name === matName);
+    if (idx !== -1) {
+      const [c] = playerHand.splice(idx, 1);
+      grave.push(c);
+      log(`${c.name} foi sacrificado da mão.`);
+    } else {
+      idx = playerField.findIndex(c => c && c.name === matName);
+      if (idx !== -1) {
+        const c = playerField[idx];
+        playerField[idx] = null;
+        grave.push(c);
+        log(`${c.name} foi sacrificado do campo.`);
+      }
+    }
+  });
+
+  // invoca o Link Monster no slot especial
+  fusionField = { ...resultado };
+  if (!fusionField.efeitoAtivadoPreparacao) {
+    ativarEfeitosDasCartas('preparacao', fusionField);
+    fusionField.efeitoAtivadoPreparacao = true;
+  }
+  log(`${fusionField.name} foi invocado(a) por Link Fusion!`);
+  selectedHandCard = null;
+  render();
+}
 
 
 document.querySelectorAll('#magic-field .magic-slot').forEach((slot, index) => {

@@ -1036,3 +1036,9 @@ h1 { margin-top: 20px; }
   border: 2px solid #ff69b4;
 }
 
+.xyz-card {
+  border: 2px solid black;
+  background: linear-gradient(to top right, #111, #666);
+}
+
+

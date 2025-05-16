@@ -1,4 +1,4 @@
-import { allCards, linkFusions } from './cards.js';
+import { allCards, linkFusions, xyzFusions } from './cards.js';
 
 // Variáveis globais
 let playerField = [null, null, null]; // Slots do jogador
@@ -103,9 +103,15 @@ function initDeckManager() {
     <h2>Deck Especial (max 5)</h2>
     <p id="special-count">Deck Especial: 0/5</p>
     <div id="special-deck" class="cards-row"></div>
+    <h3>Link Monsters</h3>
+    <div id="link-deck" class="cards-row"></div>
+    <h3>XYZ Monsters</h3>
+    <div id="xyz-deck" class="cards-row"></div>
     <hr/>
+    
   `;
-  manager.insertBefore(specialPanel, available);
+  manager.appendChild(specialPanel);
+
 
   const linkContainer = document.getElementById('link-deck');
   linkFusions.forEach(lf => {
@@ -125,6 +131,26 @@ function initDeckManager() {
     cardEl.appendChild(addBtn);
     linkContainer.appendChild(cardEl);
   });
+
+  const xyzContainer = document.getElementById('xyz-deck');
+  xyzFusions.forEach(xf => {
+    const card = xf.resultado;
+    const cardEl = createCardElement(card);
+    cardEl.classList.add('card', 'xyz-card');
+
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '+';
+    addBtn.title = 'Adicionar XYZ Monster ao Deck Especial';
+    addBtn.classList.add('add-special-btn');
+    addBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      addToSpecialDeck(card);
+    });
+
+    cardEl.appendChild(addBtn);
+    xyzContainer.appendChild(cardEl);
+  });
+
 
   // Organiza por expansão
   const expansions = {};
@@ -549,6 +575,7 @@ function render() {
       selectedHandCard = card;
       log(`Carta "${card.name}" selecionada. Escolha um slot no campo.`);
     });
+    
 
     handContainer.appendChild(el);
   });
@@ -641,16 +668,26 @@ function createCardElement(card) {
 
   // 1) Faixa de nível (estrelas)
   if (card.nivel) {
-    const lvlBar = document.createElement('div');
-    lvlBar.classList.add('card-levels');
+  const lvlBar = document.createElement('div');
+  lvlBar.classList.add('card-levels');
+
+  if (card.nivel <= 8) {
     for (let i = 0; i < card.nivel; i++) {
       const star = document.createElement('span');
       star.classList.add('card-star');
       star.textContent = '★';
       lvlBar.appendChild(star);
     }
-    cardElement.appendChild(lvlBar);
+  } else {
+    const starText = document.createElement('span');
+    starText.classList.add('card-star-number');
+    starText.textContent = `${card.nivel}★`;
+    lvlBar.appendChild(starText);
   }
+
+  cardElement.appendChild(lvlBar);
+  }
+
 
   // 2) Imagem
   const img = document.createElement('img');
@@ -679,8 +716,19 @@ function createCardElement(card) {
     cardElement.appendChild(keywords);
   }
 
-  // … restante (draggable, animações, contextmenu) …
+  cardElement.addEventListener('contextmenu', (e) => {
+    e.preventDefault(); // impede o menu padrão
+    showCardDetailsModal(card);
+  });
 
+  cardElement.draggable = true;
+  if (animacaoEntradaCampo) {
+      cardElement.classList.add('entrada-carta');
+      setTimeout(() => {
+        cardElement.classList.remove('entrada-carta');
+      }, 800);
+  }
+      
   return cardElement;
 }
 
@@ -987,6 +1035,121 @@ function executarFusao(cartaFusionavel) {
   render();
 }
 
+function getCombinacoesNivelExato(cartas, alvo, inicio = 0, atual = [], resultado = []) {
+  const soma = atual.reduce((acc, c) => acc + (c.nivel || 0), 0);
+  if (soma === alvo) {
+    resultado.push([...atual]);
+    return resultado;
+  }
+  if (soma > alvo || inicio >= cartas.length) return resultado;
+
+  for (let i = inicio; i < cartas.length; i++) {
+    atual.push(cartas[i]);
+    getCombinacoesNivelExato(cartas, alvo, i + 1, atual, resultado);
+    atual.pop();
+  }
+
+  return resultado;
+}
+
+function mostrarTodasOpcoesDeXYZFusion(possiveis) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fusion-overlay';
+
+  const modalBox = document.createElement('div');
+  modalBox.className = 'fusion-modal';
+  modalBox.innerHTML = `<h3>Escolha uma XYZ Fusion:</h3>`;
+
+  possiveis.forEach(xyz => {
+    const btn = document.createElement('button');
+    btn.className = 'fusion-option';
+    btn.innerHTML = `
+      <img src="${xyz.resultado.img}" style="height: 80px;" />
+      <div>${xyz.resultado.name}</div>
+      <div>Nível necessário: ${xyz.nivelAlvo}</div>
+    `;
+    btn.addEventListener('click', () => {
+      mostrarOpcoesDeXYZFusion(xyz);  // exibe combinações válidas
+      document.body.removeChild(overlay);
+    });
+    modalBox.appendChild(btn);
+  });
+
+  const cancel = document.createElement('button');
+  cancel.className = 'fusion-cancel';
+  cancel.textContent = 'Cancelar';
+  cancel.addEventListener('click', () => document.body.removeChild(overlay));
+  modalBox.appendChild(cancel);
+
+  overlay.appendChild(modalBox);
+  document.body.appendChild(overlay);
+}
+
+function mostrarOpcoesDeXYZFusion(xyzObj) {
+  const todasCartas = [...playerHand, ...playerField].filter(c => c);
+  const combinacoes = getCombinacoesNivelExato(todasCartas, xyzObj.nivelAlvo);
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'fusion-overlay';
+
+  const modalBox = document.createElement('div');
+  modalBox.className = 'fusion-modal';
+  modalBox.innerHTML = `<h3>Escolha as cartas para invocar ${xyzObj.resultado.name}:</h3>`;
+
+  combinacoes.forEach(comb => {
+    const btn = document.createElement('button');
+    btn.className = 'fusion-option';
+    btn.textContent = comb.map(c => c.name).join(' + ');
+    btn.addEventListener('click', () => {
+      executarXYZFusion(xyzObj, comb);
+      document.body.removeChild(overlay);
+    });
+    modalBox.appendChild(btn);
+  });
+
+  const cancel = document.createElement('button');
+  cancel.className = 'fusion-cancel';
+  cancel.textContent = 'Cancelar';
+  cancel.addEventListener('click', () => document.body.removeChild(overlay));
+  modalBox.appendChild(cancel);
+
+  overlay.appendChild(modalBox);
+  document.body.appendChild(overlay);
+}
+function executarXYZFusion(xyzObj, materiaisUsados) {
+  const { resultado } = xyzObj;
+
+  // Remove do deck especial
+  const idx = specialDeck.findIndex(e => e.name === resultado.name);
+  specialDeck.splice(idx, 1);
+  renderSpecialDeckUI();
+  log(`’${resultado.name}’ foi invocado do Deck Especial por XYZ Fusion.`);
+
+  // Sacrifica materiais
+  materiaisUsados.forEach(carta => {
+    const iHand = playerHand.indexOf(carta);
+    const iField = playerField.indexOf(carta);
+    if (iHand !== -1) {
+      playerHand.splice(iHand, 1);
+      grave.push(carta);
+      log(`${carta.name} sacrificado da mão.`);
+    } else if (iField !== -1) {
+      playerField[iField] = null;
+      grave.push(carta);
+      log(`${carta.name} sacrificado do campo.`);
+    }
+  });
+
+  fusionField = { ...resultado };
+  if (!fusionField.efeitoAtivadoPreparacao) {
+    ativarEfeitosDasCartas('preparacao', fusionField);
+    fusionField.efeitoAtivadoPreparacao = true;
+  }
+  log(`${fusionField.name} foi invocado(a) por XYZ Fusion!`);
+  selectedHandCard = null;
+  render();
+}
+
 // Lógica de clique no Slot de Fusão
 
 fusionSlot.addEventListener('click', () => {
@@ -1016,6 +1179,24 @@ fusionSlot.addEventListener('click', () => {
       mostrarOpcoesDeLinkFusion(possiveisLink);
     }
     return; // sai aqui, não cai na fusão normal
+  }
+
+  // 1.5) Se não houver Link Fusion, tenta XYZ Fusion
+  const todasCartas = [...playerHand, ...playerField].filter(c => c);
+  const possiveisXYZ = xyzFusions.filter(xyz => {
+    // todas combinações possíveis de cartas que somam nivel igual ao alvo
+    const combinacoesValidas = getCombinacoesNivelExato(todasCartas, xyz.nivelAlvo);
+    return combinacoesValidas.length > 0 &&
+          specialDeck.some(e => e.name === xyz.resultado.name);
+  });
+
+  if (possiveisXYZ.length > 0) {
+    if (possiveisXYZ.length === 1) {
+      mostrarOpcoesDeXYZFusion(possiveisXYZ[0]);
+    } else {
+      mostrarTodasOpcoesDeXYZFusion(possiveisXYZ);
+    }
+    return; // não faz fusão normal
   }
 
   // 2) Se não havia Link Fusion, segue para fusão “normal”:
@@ -1766,7 +1947,6 @@ document.getElementById('end-prep-btn').addEventListener('click', async () => {
         }
     }    
   }
-
   }
 
   export function transformarCarta(carta, context) {

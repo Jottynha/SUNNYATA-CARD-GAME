@@ -1,7 +1,28 @@
 import { transformarCarta } from './main.js';
+
+export const xyzFusions = [
+  {
+    name: 'XYZ-Golem10',
+    nivelAlvo: 10,
+    resultado: {
+      name: 'Golem XYZ',
+      tipo: 'criatura',
+      subtipo: 'XYZ',
+      atk: 9,
+      def: 8,
+      nivel: 10,
+      img: 'cartas/Golem10.png',
+      description: 'XYZ Golem invocado com total de nível 10',
+      tipoInvocacao: 'especial',
+      effect: (self, ctx) => { /* ... */ }
+    }
+  },
+  // Adicione outros XYZ aqui...
+];
+
 export const linkFusions = [
   {
-    name: 'Link-Petrichor-Helios',
+    name: 'Link-Martin-Helios',
     materiais: ['Martin', 'Helios'],    // nomes exatos das cartas requeridas
     resultado: {
       name: 'Martin-Helios Link',
@@ -9,22 +30,31 @@ export const linkFusions = [
       subtipo: 'Link',
       atk: 7,
       def: 7,
-      img: 'cartas/LinkPetrichorHelios.png',
+      img: 'cartas/LinkMartinHelios.png',
       description: 'Link Fusion de Petrichor + Helios',
       tipoInvocacao: 'especial',
-      effect: (self, ctx) => { /* ... */ }
+      effect: (self, ctx) => { 
+        if(fase === 'preparacao') {
+          const inimigosAlvo = ctx.oponente.campo.filter(carta => carta.tipo === 'criatura' && carta.atk <= 7);
+          if (inimigosAlvo.length > 0) {
+            const alvo = inimigosAlvo[0]; // Escolhe o primeiro válido (pode-se usar prompt se tiver UI)
+            ctx.oponente.campo = ctx.oponente.campo.filter(carta => carta !== alvo);
+            ctx.log.push(`${self.name} destruiu ${alvo.name} ao ser invocada.`);
+          } 
+        }
+      }
     }
   },
   {
-    name: 'Link-Martinke-Sasuke',
-    materiais: ['Martin', 'Sasuke'],
+    name: 'Link-Hilda-Diego',
+    materiais: ['Hilda', 'Diego'],
     resultado: {
-      name: 'Martinke-Sasuke Link',
+      name: 'Hilda-Diego Link',
       tipo: 'criatura',
       subtipo: 'Link',
       atk: 8,
       def: 6,
-      img: 'cartas/LinkMartinkeSasuke.png',
+      img: 'cartas/LinkDiegoHilda.png',
       description: 'Link Fusion de Martin + Sasuke',
       tipoInvocacao: 'especial',
       effect: (self, ctx) => { /* ... */ }

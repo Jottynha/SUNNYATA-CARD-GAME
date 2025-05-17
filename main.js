@@ -1,4 +1,4 @@
-import { allCards, linkFusions, xyzFusions } from './cards.js';
+import { allCards, linkFusions, xyzFusions,synchroFusions } from './cards.js';
 
 // Variáveis globais
 let playerField = [null, null, null]; // Slots do jogador
@@ -88,7 +88,6 @@ function renderSpecialDeckUI() {
     `Deck Especial: ${specialDeck.length}/5`;
 }
 
-// --- 3) Integração em initDeckManager() ---
 function initDeckManager() {
   createOpponentDeck();
 
@@ -103,16 +102,21 @@ function initDeckManager() {
     <h2>Deck Especial (max 5)</h2>
     <p id="special-count">Deck Especial: 0/5</p>
     <div id="special-deck" class="cards-row"></div>
+    
     <h3>Link Monsters</h3>
     <div id="link-deck" class="cards-row"></div>
+    
     <h3>XYZ Monsters</h3>
     <div id="xyz-deck" class="cards-row"></div>
-    <hr/>
     
+    <h3>Synchro Monsters</h3>
+    <div id="synchro-deck" class="cards-row"></div>
+    
+    <hr/>
   `;
   manager.appendChild(specialPanel);
 
-
+  // Link Monsters
   const linkContainer = document.getElementById('link-deck');
   linkFusions.forEach(lf => {
     const card = lf.resultado;
@@ -132,6 +136,7 @@ function initDeckManager() {
     linkContainer.appendChild(cardEl);
   });
 
+  // XYZ Monsters
   const xyzContainer = document.getElementById('xyz-deck');
   xyzFusions.forEach(xf => {
     const card = xf.resultado;
@@ -150,6 +155,27 @@ function initDeckManager() {
     cardEl.appendChild(addBtn);
     xyzContainer.appendChild(cardEl);
   });
+
+  // Synchro Monsters
+  const synchroContainer = document.getElementById('synchro-deck');
+  synchroFusions.forEach(sf => {
+    const card = sf.resultado;
+    const cardEl = createCardElement(card);
+    cardEl.classList.add('card', 'synchro-card');
+
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '+';
+    addBtn.title = 'Adicionar Synchro Monster ao Deck Especial';
+    addBtn.classList.add('add-special-btn');
+    addBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      addToSpecialDeck(card);
+    });
+
+    cardEl.appendChild(addBtn);
+    synchroContainer.appendChild(cardEl);
+  });
+
 
 
   // Organiza por expansão
@@ -381,26 +407,34 @@ function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase
   
   // Função para iniciar o jogo
   function startGame() {
-    const selectedCards = getSelectedCardsArray();
+  console.log('Iniciando o jogo...');
+  const selectedCards = getSelectedCardsArray();
 
-    if (selectedCards.length === MAX_DECK_SIZE) {
-      deck = [...selectedCards];
-      shuffleDeck(deck);
-      log('Deck de 20 cartas selecionado. Iniciando o jogo...');
-      document.getElementById('deck-manager').style.display = 'none';
-      document.getElementById('selected-deck').style.display = 'none';
-      document.getElementById('deck-count').style.display = 'none';
-      for (let i = 0; i < 5; i++) {
-        const card = deck.pop();
-        playerHand.push(card);
-        lastDrawnCard = card;
-        log(`Você comprou a carta: ${card.name}!`);
-      }
-      render();
-    } else {
-      alert(`Você precisa selecionar exatamente ${MAX_DECK_SIZE} cartas!`);
+  if (selectedCards.length === MAX_DECK_SIZE) {
+    // Oculta todos os elementos do gerenciador
+    document.getElementById('deck-manager').style.display = 'none';
+    document.getElementById('available-cards').style.display = 'none';
+    document.getElementById('selected-deck').style.display = 'none';
+    document.getElementById('deck-count').style.display = 'none';
+    document.getElementById('start-game-btn').style.display = 'none';
+
+    deck = [...selectedCards];
+    shuffleDeck(deck);
+    log('Deck de 20 cartas selecionado. Iniciando o jogo...');
+    
+    for (let i = 0; i < 5; i++) {
+      const card = deck.pop();
+      playerHand.push(card);
+      lastDrawnCard = card;
+      log(`Você comprou a carta: ${card.name}!`);
     }
+    render();
+  } else {
+    alert(`Você precisa selecionar exatamente ${MAX_DECK_SIZE} cartas!`);
   }
+}
+
+
   function createEquipamentCardElement(card) {
     const cardElement = document.createElement('div');
     cardElement.classList.add('card', 'equipamento');
@@ -1149,6 +1183,145 @@ function executarXYZFusion(xyzObj, materiaisUsados) {
   selectedHandCard = null;
   render();
 }
+function getTodasCombinacoes(array) {
+  const resultado = [];
+
+  const n = array.length;
+
+  // Usamos bitmask para gerar todas as combinações possíveis
+  for (let mask = 1; mask < (1 << n); mask++) {
+    const comb = [];
+    for (let i = 0; i < n; i++) {
+      if (mask & (1 << i)) {
+        comb.push(array[i]);
+      }
+    }
+    resultado.push(comb);
+  }
+
+  return resultado;
+}
+
+function getCombinacoesSynchroValidas(cartas, nivelAlvo) {
+  // Transformar subtipo em minúsculas para comparação consistente
+  const tuners = cartas.filter(c => c.subtipo.includes('tuner'));
+  const naoTuners = cartas.filter(c => !c.subtipo.includes('tuner'));
+
+  const combinacoes = [];
+
+  tuners.forEach(tuner => {
+    // Já que tuner não está em naoTuners, não precisa filtrar
+    const combinacoesNT = getTodasCombinacoes(naoTuners);
+
+    combinacoesNT.forEach(comb => {
+      const soma = comb.reduce((acc, c) => acc + c.nivel, 0) + tuner.nivel;
+      if (soma === nivelAlvo) {
+        combinacoes.push([tuner, ...comb]);
+      }
+    });
+  });
+
+  return combinacoes;
+}
+
+
+function mostrarTodasOpcoesDeSynchroFusion(possiveis) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fusion-overlay';
+
+  const modalBox = document.createElement('div');
+  modalBox.className = 'fusion-modal';
+  modalBox.innerHTML = `<h3>Escolha uma Synchro Fusion:</h3>`;
+
+  possiveis.forEach(sf => {
+    const btn = document.createElement('button');
+    btn.className = 'fusion-option';
+    btn.innerHTML = `
+      <img src="${sf.resultado.img}" style="height: 80px;" />
+      <div>${sf.resultado.name}</div>
+      <div>Nível necessário: ${sf.nivelAlvo}</div>
+    `;
+    btn.addEventListener('click', () => {
+      mostrarOpcoesDeSynchroFusion(sf);
+      document.body.removeChild(overlay);
+    });
+    modalBox.appendChild(btn);
+  });
+
+  const cancel = document.createElement('button');
+  cancel.className = 'fusion-cancel';
+  cancel.textContent = 'Cancelar';
+  cancel.addEventListener('click', () => document.body.removeChild(overlay));
+  modalBox.appendChild(cancel);
+
+  overlay.appendChild(modalBox);
+  document.body.appendChild(overlay);
+}
+
+function mostrarOpcoesDeSynchroFusion(synchroObj) {
+  const todasCartas = [...playerHand, ...playerField].filter(c => c);
+  const combinacoes = getCombinacoesSynchroValidas(todasCartas, synchroObj.nivelAlvo);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'fusion-overlay';
+
+  const modalBox = document.createElement('div');
+  modalBox.className = 'fusion-modal';
+  modalBox.innerHTML = `<h3>Escolha as cartas para invocar ${synchroObj.resultado.name}:</h3>`;
+
+  combinacoes.forEach(comb => {
+    const btn = document.createElement('button');
+    btn.className = 'fusion-option';
+    btn.textContent = comb.map(c => c.name).join(' + ');
+    btn.addEventListener('click', () => {
+      executarSynchroFusion(synchroObj, comb);
+      document.body.removeChild(overlay);
+    });
+    modalBox.appendChild(btn);
+  });
+
+  const cancel = document.createElement('button');
+  cancel.className = 'fusion-cancel';
+  cancel.textContent = 'Cancelar';
+  cancel.addEventListener('click', () => document.body.removeChild(overlay));
+  modalBox.appendChild(cancel);
+
+  overlay.appendChild(modalBox);
+  document.body.appendChild(overlay);
+}
+
+function executarSynchroFusion(synchroObj, materiaisUsados) {
+  const { resultado } = synchroObj;
+
+  const idx = specialDeck.findIndex(e => e.name === resultado.name);
+  specialDeck.splice(idx, 1);
+  renderSpecialDeckUI();
+  log(`’${resultado.name}’ foi invocado do Deck Especial por Synchro Fusion.`);
+
+  materiaisUsados.forEach(carta => {
+    const iHand = playerHand.indexOf(carta);
+    const iField = playerField.indexOf(carta);
+    if (iHand !== -1) {
+      playerHand.splice(iHand, 1);
+      grave.push(carta);
+      log(`${carta.name} sacrificado da mão.`);
+    } else if (iField !== -1) {
+      playerField[iField] = null;
+      grave.push(carta);
+      log(`${carta.name} sacrificado do campo.`);
+    }
+  });
+
+  fusionField = { ...resultado };
+  if (!fusionField.efeitoAtivadoPreparacao) {
+    ativarEfeitosDasCartas('preparacao', fusionField);
+    fusionField.efeitoAtivadoPreparacao = true;
+  }
+  log(`${fusionField.name} foi invocado(a) por Synchro Fusion!`);
+  selectedHandCard = null;
+  render();
+}
+
 
 // Lógica de clique no Slot de Fusão
 
@@ -1198,6 +1371,22 @@ fusionSlot.addEventListener('click', () => {
     }
     return; // não faz fusão normal
   }
+  // 1.75) Se não houver XYZ Fusion, tenta Synchro Fusion
+  const possiveisSynchro = synchroFusions.filter(sf => {
+    const combinacoesValidas = getCombinacoesSynchroValidas(todasCartas, sf.nivelAlvo);
+    return combinacoesValidas.length > 0 &&
+          specialDeck.some(e => e.name === sf.resultado.name);
+  });
+
+  if (possiveisSynchro.length > 0) {
+    if (possiveisSynchro.length === 1) {
+      mostrarOpcoesDeSynchroFusion(possiveisSynchro[0]);
+    } else {
+      mostrarTodasOpcoesDeSynchroFusion(possiveisSynchro);
+    }
+    return;
+  }
+
 
   // 2) Se não havia Link Fusion, segue para fusão “normal”:
   const isEspecial = selectedHandCard.tipoInvocacao === 'especial';

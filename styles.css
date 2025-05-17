@@ -1041,4 +1041,9 @@ h1 { margin-top: 20px; }
   background: linear-gradient(to top right, #111, #666);
 }
 
+.synchro-card {
+  border: 2px solid #aaa;
+  background: linear-gradient(to bottom, #252222, #1a1a1d);
+  box-shadow: 0 0 8px #888;
+}
 

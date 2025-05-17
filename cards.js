@@ -17,8 +17,27 @@ export const xyzFusions = [
       effect: (self, ctx) => { /* ... */ }
     }
   },
-  // Adicione outros XYZ aqui...
 ];
+
+export const synchroFusions = [
+  {
+    name: 'Synchro-Dragao',
+    nivelAlvo: 8,
+    resultado: {
+      name: 'Dragão Synchro',
+      tipo: 'criatura',
+      subtipo: 'Synchro',
+      atk: 10,
+      def: 6,
+      nivel: 8,
+      img: 'cartas/DragaoSynchro.png',
+      description: 'Dragão Synchro invocado com um Tuner e outros monstros totalizando nível 8.',
+      tipoInvocacao: 'especial',
+      effect: (self, ctx) => { /* ... */ }
+    }
+  }
+];
+
 
 export const linkFusions = [
   {
@@ -513,7 +532,7 @@ export const allCards = [
   {
     name: 'Crânio',
     tipo: 'criatura',
-    subtipo: 'NPC',
+    subtipo: ['NPC', 'tuner'],
     atk: 4,
     def: 2,
     nivel: 3,

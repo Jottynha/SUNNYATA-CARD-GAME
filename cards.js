@@ -548,6 +548,7 @@ export const allCards = [
         return;
       }
 
+      
       // Encontra a carta no campo de magia (seja aliado ou inimigo)
       const idx = context.magicField.findIndex(c => c === alvoMagia);
       if (idx === -1) {

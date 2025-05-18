@@ -18,8 +18,8 @@ let turn = 0;
 let playerHand = []; // cartas na mão
 let selectedHandCard = null
 let deck = [];
-const specialDeck = [];
-const opponentSpecialDeck = [];
+let specialDeck = [];
+let opponentSpecialDeck = [];
 let opponentDeck = [];
 let opponentHand = [];
 let grave = [];
@@ -104,14 +104,62 @@ function renderSpecialDeckUI() {
     `Deck Especial: ${specialDeck.length}/5`;
 }
 
+function renderDeckUI() {
+  const count = document.getElementById('deck-count');
+  count.textContent = `Cartas no deck: ${deck.length}/20`;
+}  
+
+function salvarDecks() {
+  const selectedCards = getSelectedCardsArray();
+  deck = selectedCards;
+  localStorage.setItem('deck', JSON.stringify(deck));
+  localStorage.setItem('specialDeck', JSON.stringify(specialDeck));
+  alert('Decks salvos com sucesso!');
+  console.log('Deck Normal:', deck);
+}
+
+function carregarDecks() {
+  const deckNormalSalvo = localStorage.getItem('deck');
+  const deckEspecialSalvo = localStorage.getItem('specialDeck');
+
+  if (deckNormalSalvo) {
+    deck = JSON.parse(deckNormalSalvo);
+  } else {
+    deck = []; // caso não exista
+  }
+
+  if (deckEspecialSalvo) {
+    specialDeck = JSON.parse(deckEspecialSalvo);
+  } else {
+    specialDeck = []; // caso não exista
+  }
+  renderSpecialDeckUI();
+  renderDeckUI();
+  alert('Decks carregados com sucesso!');
+  
+}
+
+window.salvarDecks = salvarDecks;
+window.carregarDecks = carregarDecks;
+
+
 function initDeckManager() {
+  
   createOpponentDeck();
 
   const available = document.getElementById('available-cards');
   available.innerHTML = '';
+  
 
   // Renderiza painel do Deck Especial acima
   const manager = document.getElementById('deck-manager');
+  const actions = document.createElement('div');
+  actions.classList.add('deck-actions');
+  actions.innerHTML = `
+    <button onclick="salvarDecks()">💾 Salvar Decks</button>
+    <button onclick="carregarDecks()">📂 Carregar Decks</button>
+  `;
+  manager.appendChild(actions);
   const specialPanel = document.createElement('div');
   specialPanel.id = 'special-deck-panel';
   specialPanel.innerHTML = `
@@ -258,6 +306,7 @@ function initDeckManager() {
 
   // Botão de iniciar
   document.getElementById('start-game-btn').addEventListener('click', startGame);
+  document.getElementById('return-home-btn').addEventListener('click', voltarMenu);
 
   // Renderiza inicial do painel especial
   renderSpecialDeckUI();
@@ -423,7 +472,6 @@ function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase
   
   // Função para iniciar o jogo
   function startGame() {
-  console.log('Iniciando o jogo...');
   const selectedCards = getSelectedCardsArray();
 
   if (selectedCards.length === MAX_DECK_SIZE) {
@@ -433,6 +481,9 @@ function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase
     document.getElementById('selected-deck').style.display = 'none';
     document.getElementById('deck-count').style.display = 'none';
     document.getElementById('start-game-btn').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('deck-section').style.display = 'none';
+    document.getElementById('game-section').style.display = 'block';
 
     deck = [...selectedCards];
     shuffleDeck(deck);
@@ -2548,7 +2599,7 @@ document.getElementById('special-deck-opponent')
           'Deck Especial (Oponente)',
           opponentSpecialDeck
         ));
-document.getElementById('btn-regras').addEventListener('click', () => {
+document.getElementById('btn-regras-geral').addEventListener('click', () => {
   document.getElementById('modal-regras').style.display = 'block';
 });
 
@@ -2575,7 +2626,42 @@ function checkOrientation() {
 window.addEventListener('resize', checkOrientation);
 window.addEventListener('orientationchange', checkOrientation);
 window.addEventListener('load', checkOrientation);
+function abrirDeck() {
+  document.getElementById('btn-regras-geral').style.display = 'block';
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('deck-section').style.display = 'block';
+    document.getElementById('game-section').style.display = 'none';
+    
+  }
 
+function voltarMenu() {
+  document.getElementById('btn-regras-geral').style.display = 'block';
+    document.getElementById('main-menu').style.display = 'block';
+    document.getElementById('deck-section').style.display = 'none';
+    document.getElementById('game-section').style.display = 'none';
+  }
+window.abrirDeck = abrirDeck;
+window.iniciarJogo = startGame;
 
-// Inicializa o jogo
+const tooltip = document.getElementById('deck-tooltip');
+const deckCount = document.getElementById('deck-count');
+function atualizarDeck() {
+  const selectedCards = getSelectedCardsArray(); 
+
+  // Apenas atualiza se selectedCards tiver cartas
+  if (selectedCards.length > 0) {
+    deck = selectedCards;  // Só sobrescreve o deck salvo se houver novas cartas
+  }
+
+  if (deck.length > 0) {
+    const nomesDasCartas = deck.map(carta => carta.name);
+    tooltip.textContent = nomesDasCartas.join('\n');
+  } else {
+    tooltip.textContent = 'Nenhuma carta no deck';
+  }
+
+  deckCount.textContent = `Cartas no deck: ${deck.length}/20`;
+}
+
+setInterval(atualizarDeck, 500);
 window.onload = () => initDeckManager();

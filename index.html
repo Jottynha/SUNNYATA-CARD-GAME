@@ -12,10 +12,13 @@
   <div id="rotate-warning" style="display:none; position:fixed; inset:0; background:black; color:white; z-index:9999; align-items:center; justify-content:center; font-size:1.5em;">
     Por favor, vire seu dispositivo na horizontal para jogar.
   </div>
-  
+  <div id="main-menu">
+    <button class="menu-button" onclick="iniciarJogo()">Iniciar Jogo</button>
+    <button class="menu-button" onclick="abrirDeck()">Montar Deck</button>
+    <button id='btn-regras' class="menu-button">Regras do Jogo</button>
+  </div>
   <!-- Botão para abrir as regras -->
-  <button id="btn-regras" class="btn-regras">Regras do Jogo</button>
-
+  <button id="btn-regras-geral" class="btn-regras-geral" style="display: none;">Regras do Jogo</button>
   <!-- Botão para abrir o modal de sacrificio -->
   <div id="sacrificioModal" style="display:none; position:fixed; top:20%; left:50%; transform:translateX(-50%);
  background:#fff; padding:20px; border:2px solid black; z-index:1000;">
@@ -106,85 +109,93 @@
     </div>
   </div>
   
-
-  <div id="selected-deck"></div>
-  
-  <div id="deck-manager" class="deck-manager">
-  </div>
-    <p id="deck-count">Cartas no deck: 0/20</p>
-
-    <div id="available-cards">
+  <div id="deck-section" style="display: none;">
+    <button id="return-home-btn">Voltar ao Menu</button>
+    <button id="start-game-btn">Iniciar o Jogo</button>
+    <div id="selected-deck"></div>
+    
+    <div id="deck-manager" class="deck-manager"></div> 
+    <div class="tooltip" id="deck-container">
+      <p id="deck-count">Cartas no deck: 0/20</p>
+      <div class="tooltiptext" id="deck-tooltip">
+        Nenhuma carta no deck
+      </div>
     </div>
-    <button id="start-game-btn">Iniciar Jogo</button>
+
+      <div id="available-cards">
+      </div>
+      
+    
+    </div>
   </div>
-  <div id="status-area">
-    <div><strong>Você:</strong> <span id="player-hp">20</span> HP</div>
-    <div><strong>Oponente:</strong> <span id="opponent-hp">20</span> HP</div>
-  </div> 
-  <div id="battle-wrapper">
-    <div id="game-area">
-      <div id="opponent-extra-areas">
-        <div id="opponent-deck-grave">
-          <div class="deck-grave" id="opponent-deck">Deck (Oponente)</div>
-          <div class="deck-grave" id="opponent-grave">Cemitério (Oponente)</div>
-          <div class="deck-grave" id="special-deck-opponent">Deck-Especial (Oponente)</div>
+  <div id="game-section" style="display: none;">
+    <div id="status-area">
+      <div><strong>Você:</strong> <span id="player-hp">20</span> HP</div>
+      <div><strong>Oponente:</strong> <span id="opponent-hp">20</span> HP</div>
+    </div> 
+    <div id="battle-wrapper">
+      <div id="game-area">
+        <div id="opponent-extra-areas">
+          <div id="opponent-deck-grave">
+            <div class="deck-grave" id="opponent-deck">Deck (Oponente)</div>
+            <div class="deck-grave" id="opponent-grave">Cemitério (Oponente)</div>
+            <div class="deck-grave" id="special-deck-opponent">Deck-Especial (Oponente)</div>
+          </div>
         </div>
-      </div>
-      <div id="opponent-hand" class="opponent-hand"></div>
-      <div class="field-row" id="opponent-magic-field">
-        <div class="magic-slot slot" data-pos="0"></div>
-        <div class="magic-slot slot" data-pos="1"></div>
-        <div class="magic-slot slot" data-pos="2"></div>
-      </div>
-      <div class="field-row" id="opponent-field">
-        <div class="slot" data-pos="0"></div>
-        <div class="slot" data-pos="1"></div>
-        <div class="slot" data-pos="2"></div>
-        <div class="slot" data-pos="3"></div>
-        <div class="fusion-row" id="opponent-fusion-slot">
-          <div class="slot especial" data-pos="3" title="Slot Especial: Fusão / Invocação"></div>
+        <div id="opponent-hand" class="opponent-hand"></div>
+        <div class="field-row" id="opponent-magic-field">
+          <div class="magic-slot slot" data-pos="0"></div>
+          <div class="magic-slot slot" data-pos="1"></div>
+          <div class="magic-slot slot" data-pos="2"></div>
         </div>
-      </div>
-      <div class="field-row" id="player-field-container">
-        <div class="field-row" id="player-field">
+        <div class="field-row" id="opponent-field">
           <div class="slot" data-pos="0"></div>
           <div class="slot" data-pos="1"></div>
           <div class="slot" data-pos="2"></div>
           <div class="slot" data-pos="3"></div>
+          <div class="fusion-row" id="opponent-fusion-slot">
+            <div class="slot especial" data-pos="3" title="Slot Especial: Fusão / Invocação"></div>
+          </div>
         </div>
-        <div class="fusion-row" id="fusion-slot">
-          <div class="slot especial" data-pos="3" title="Slot Especial: Fusão / Invocação"></div>
+        <div class="field-row" id="player-field-container">
+          <div class="field-row" id="player-field">
+            <div class="slot" data-pos="0"></div>
+            <div class="slot" data-pos="1"></div>
+            <div class="slot" data-pos="2"></div>
+            <div class="slot" data-pos="3"></div>
+          </div>
+          <div class="fusion-row" id="fusion-slot">
+            <div class="slot especial" data-pos="3" title="Slot Especial: Fusão / Invocação"></div>
+          </div>
+        </div>
+        <div class="field-row" id="magic-field">
+          <div class="magic-slot slot" data-pos="0"></div>
+          <div class="magic-slot slot" data-pos="1"></div>
+          <div class="magic-slot slot" data-pos="2"></div>
+        </div>
+        <div id="player-extra-areas">
+          <div id="player-deck-grave">
+            <div class="deck-grave" id="player-deck">Deck (Você)</div>
+            <div class="deck-grave" id="special-deck-panel">Deck-Especial (Você)</div>
+            <div class="deck-grave" id="player-grave">Cemitério (Você)</div>
+          </div>
         </div>
       </div>
-      <div class="field-row" id="magic-field">
-        <div class="magic-slot slot" data-pos="0"></div>
-        <div class="magic-slot slot" data-pos="1"></div>
-        <div class="magic-slot slot" data-pos="2"></div>
-      </div>
-      <div id="player-extra-areas">
-        <div id="player-deck-grave">
-          <div class="deck-grave" id="player-deck">Deck (Você)</div>
-          <div class="deck-grave" id="special-deck-panel">Deck-Especial (Você)</div>
-          <div class="deck-grave" id="player-grave">Cemitério (Você)</div>
-        </div>
-      </div>
+
+      <div id="log"></div>
     </div>
-  
-    <div id="log"></div>
-    
-  </div>
-  
-  
-  
-  <div id="hand-area">
-    <h3>Sua Mão</h3>
-    <div id="player-hand"></div>
-  </div>
-  <div id="controls">
+    <div id="hand-area">
+      <h3>Sua Mão</h3>
+      <div id="player-hand"></div>
+    </div>
+    <div id="controls">
     <div id="fusao-opcoes" style="display: none;"></div>
     <button id="draw-btn">Comprar Carta</button>
     <button id="end-prep-btn">Encerrar Preparação</button>
   </div>
+  </div>
+
+  
   <div id="card-details-modal" class="modal">
     <div class="modal-content" id="card-details-content"></div>
     <span class="close-button" onclick="document.getElementById('card-details-modal').style.display='none'">&times;</span>

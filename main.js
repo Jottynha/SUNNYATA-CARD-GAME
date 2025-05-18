@@ -660,36 +660,59 @@ function render() {
 
   
   function createMagicCardElement(card) {
-    const cardElement = document.createElement('div');
-    cardElement.classList.add('card', 'magic-card');
-  
-    // Imagem
-    const img = document.createElement('img');
-    img.src = card.img;
-    img.alt = card.name;
-    img.classList.add('card-image');
-    cardElement.appendChild(img);
-  
-    // Texto
-    const text = document.createElement('div');
-    text.classList.add('card-text');
-    text.innerHTML = `<strong>${card.name}</strong><br><em>${card.subtipo === 'continua' ? 'Magia Contínua' : 'Magia Imediata'}</em>`;
-    cardElement.appendChild(text);
-  
-    if (animacaoEntradaCampo) {
-      cardElement.classList.add('entrada-carta');
-      setTimeout(() => {
-        cardElement.classList.remove('entrada-carta');
-      }, 800);
+  const cardElement = document.createElement('div');
+  cardElement.classList.add('card', 'magic-card');
+
+  // Imagem
+  const img = document.createElement('img');
+  img.src = card.img;
+  img.alt = card.name;
+  img.classList.add('card-image');
+  cardElement.appendChild(img);
+
+  // Texto
+  const text = document.createElement('div');
+  text.classList.add('card-text');
+
+  // Detecta subtipo Pêndulo e se está no campo de magia
+  const isPendulo = Array.isArray(card.subtipo) && card.subtipo.includes('pendulo');
+  let escalaLabel = '';
+
+  if (isPendulo) {
+    // Encontra índice do slot onde a carta está no magicField
+    const slotIndex = magicField.findIndex(c => c === card);
+    if (slotIndex === 0) {
+      escalaLabel = `Pêndulo: Escala ${card.escalaMin}`;
+    } else if (slotIndex === 1) {
+      escalaLabel = `Pêndulo: Escala ${card.escalaMax}`;
     }
-  
-    cardElement.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      showCardDetailsModal(card);
-    });
-  
-    return cardElement;
   }
+
+  if (escalaLabel) {
+    text.innerHTML = `<strong>${card.name}</strong><br><em>${escalaLabel}</em>`;
+  } else {
+    // Magia normal
+    const tipoMagia = card.subtipo === 'continua' ? 'Magia Contínua' : 'Magia Imediata';
+    text.innerHTML = `<strong>${card.name}</strong><br><em>${tipoMagia}</em>`;
+  }
+  cardElement.appendChild(text);
+
+  // Animação de entrada
+  if (animacaoEntradaCampo) {
+    cardElement.classList.add('entrada-carta');
+    setTimeout(() => {
+      cardElement.classList.remove('entrada-carta');
+    }, 800);
+  }
+
+  // Clique com botão direito mostra detalhes
+  cardElement.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showCardDetailsModal(card);
+  });
+
+  return cardElement;
+}
   
 
 // Função para criar um elemento de carta
@@ -851,141 +874,146 @@ function realizarInvocacaoCreature(index, carta, isEspecial) {
 
 document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
   slot.addEventListener('click', () => {
-    
     if (!selectedHandCard) {
       log('Nenhuma carta selecionada!');
       return;
     }
 
-   if (selectedHandCard.tipo === 'criatura') {
-    if (playerField[index]) {
-      log('Este slot já está ocupado!');
-      return;
+    const carta = selectedHandCard;
+    const isPenduloCarta = Array.isArray(carta.subtipo) && carta.subtipo.includes('pendulo');
+
+    // --- 0) INVOCAR POR PÊNDULO (se for carta Pêndulo e houver 2 Pêndulos nos slots de magia) ---
+    const pendulosNoCampo = magicField.filter(c =>
+      c && c.tipo === 'criatura' && c.colocadaComoPendulo && Array.isArray(c.subtipo) && c.subtipo.includes('pendulo')
+    );
+    if (isPenduloCarta && pendulosNoCampo.length >= 2) {
+      // calcula intervalo de níveis
+      const escalaMin = Math.min(...pendulosNoCampo.map(p => p.escalaMin));
+      const escalaMax = Math.max(...pendulosNoCampo.map(p => p.escalaMax));
+      if (carta.nivel > escalaMin && carta.nivel < escalaMax) {
+        // invoca diretamente ignorando tributos
+        if (playerField[index]) {
+          log('Este slot já está ocupado!');
+        } else {
+          // remove da mão
+          const iHand = playerHand.indexOf(carta);
+          if (iHand !== -1) playerHand.splice(iHand, 1);
+
+          // coloca no campo
+          playerField[index] = carta;
+          log(`${carta.name} foi invocada por Fusão Pêndulo no slot ${index + 1}!`);
+          selectedHandCard = null;
+          render();
+        }
+        return; // saiu após pendulo
+      } else {
+        log(`${carta.name} não está entre as escalas (${escalaMin}~${escalaMax}).`);
+        return;
+      }
     }
 
-    const isEspecial = selectedHandCard.tipoInvocacao === 'especial';
-    const nivel = selectedHandCard.nivel || 1;
-
-    let sacrificiosNecessarios = 0;
-    if (nivel >= 5 && nivel <= 6) {
-      sacrificiosNecessarios = 1;
-    } else if (nivel >= 7) {
-      sacrificiosNecessarios = 2;
-    }
-
-    // Invocação especial: verifica condição personalizada
-    if (isEspecial && selectedHandCard.podeSerInvocada && !selectedHandCard.podeSerInvocada(playerField)) {
-      log('Condição para invocação especial não foi satisfeita!');
-      return;
-    }
-
-    // Impede múltiplas invocações normais de nível 4 ou menos
-    if (!isEspecial && nivel <= 4 && invocacaoNormalFeita) {
-      log('Você já fez uma invocação normal neste turno!');
-      return;
-    }
-
-    // Verifica se há necessidade de sacrifícios
-    if (sacrificiosNecessarios > 0) {
-      if (invocacaoSacrificioFeita) {
-        log('Você já fez uma invocação por sacrifício neste turno!');
+    // --- 1) INVOCAR CRIATURA NORMAL / ESPECIAL / TRIBUTO ---
+    if (carta.tipo === 'criatura') {
+      if (playerField[index]) {
+        log('Este slot já está ocupado!');
         return;
       }
 
-      const disponiveis = getSacrificiosDisponiveis()
-      .filter(c => c !== selectedHandCard)  // evita que a carta sendo invocada apareça
-      .map(c => ({
-        referencia: c,
-        origem: playerField.includes(c) ? 'campo' : 'mão',
-        name: c.name
-      }));
+      const isEspecial = carta.tipoInvocacao === 'especial';
+      const nivel = carta.nivel || 1;
+      let sacrificiosNecessarios = 0;
+      if (nivel >= 5 && nivel <= 6) sacrificiosNecessarios = 1;
+      else if (nivel >= 7) sacrificiosNecessarios = 2;
 
-
-      if (disponiveis.length < sacrificiosNecessarios) {
-        log(`Você precisa de ${sacrificiosNecessarios} sacrifício(s), mas só tem ${disponiveis.length} disponível(is).`);
+      // Invocação especial com condição personalizada
+      if (isEspecial && carta.podeSerInvocada && !carta.podeSerInvocada(playerField)) {
+        log('Condição para invocação especial não foi satisfeita!');
         return;
       }
 
-      mostrarModalSacrificios(disponiveis, sacrificiosNecessarios, (sacrificiosSelecionados) => {
-        // Remove os sacrifícios do campo ou da mão
-        sacrificiosSelecionados.forEach(sacrificio => {
-          const carta = sacrificio.referencia;
+      // Impede múltiplas invocações normais de nível 4 ou menos
+      if (!isEspecial && nivel <= 4 && invocacaoNormalFeita) {
+        log('Você já fez uma invocação normal neste turno!');
+        return;
+      }
 
-          if (sacrificio.origem === 'campo') {
-            const idx = playerField.indexOf(carta);
-            if (idx !== -1) playerField[idx] = null;
-          } else {
-            const idx = playerHand.indexOf(carta);
-            if (idx !== -1) playerHand.splice(idx, 1);
-          }
+      // Verifica necessidade de tributos
+      if (sacrificiosNecessarios > 0) {
+        if (invocacaoSacrificioFeita) {
+          log('Você já fez uma invocação por sacrifício neste turno!');
+          return;
+        }
 
-          grave.push(carta);
-          log(`${carta.name} foi sacrificado!`);
+        const disponiveis = getSacrificiosDisponiveis()
+          .filter(c => c !== carta)
+          .map(c => ({ referencia: c, origem: playerField.includes(c) ? 'campo' : 'mão', name: c.name }));
+
+        if (disponiveis.length < sacrificiosNecessarios) {
+          log(`Você precisa de ${sacrificiosNecessarios} sacrifício(s), mas só tem ${disponiveis.length}.`);
+          return;
+        }
+
+        mostrarModalSacrificios(disponiveis, sacrificiosNecessarios, (sacSelecionados) => {
+          // executa sacrifícios
+          sacSelecionados.forEach(s => {
+            const cRef = s.referencia;
+            if (s.origem === 'campo') {
+              const idxField = playerField.indexOf(cRef);
+              if (idxField !== -1) playerField[idxField] = null;
+            } else {
+              const idxHand = playerHand.indexOf(cRef);
+              if (idxHand !== -1) playerHand.splice(idxHand, 1);
+            }
+            grave.push(cRef);
+            log(`${cRef.name} foi sacrificado!`);
+          });
+
+          // após tributo, invoca
+          realizarInvocacaoCreature(index, carta, isEspecial);
+          invocacaoSacrificioFeita = true;
         });
 
+        return; // espera seleção de tributos
+      }
 
-        // Após sacrifícios, invoca a criatura
-        realizarInvocacaoCreature(index, selectedHandCard, isEspecial);
-        invocacaoSacrificioFeita = true;
-      });
-
-      return; // Aguarda interação do jogador com o modal
+      // sem tributos
+      realizarInvocacaoCreature(index, carta, isEspecial);
+      return;
     }
 
-    // Caso não haja necessidade de sacrifícios, invoca diretamente
-    realizarInvocacaoCreature(index, selectedHandCard, isEspecial);
-  }
-
-
-    if (selectedHandCard.tipo === 'equipamento') {
-      const criatura = playerField[index];
-    
-      if (!criatura || criatura.tipo !== 'criatura') {
+    // --- 2) EQUIPAMENTO ---
+    if (carta.tipo === 'equipamento') {
+      const criaturaAlvo = playerField[index];
+      if (!criaturaAlvo || criaturaAlvo.tipo !== 'criatura') {
         log('Você deve escolher uma criatura aliada para equipar!');
         return;
       }
-    
-      // Equipar
-      const contexto = {
-        deck,
-        fase: 'preparacao',
-        opponentField,
-        playerField,
-        playerHP,
-        opponentHP,
-        opponentGrave,
-        playerGrave: grave,
-        enemiesOnField: opponentField.filter(c => c !== null).length,
-        playerCardsOnField: playerField.filter(c => c !== null).length,
-        deckSize: deck.length,
-        turn,
-        playerHand,
-        compra: canDrawThisTurn,
-        log,
-        permitirCompra: () => { canDrawThisTurn = true; },
-        modifyPlayerHP: (delta) => { playerHP += delta; },
-        modifyOpponentHP: (delta) => { opponentHP += delta; },
-        alvoCampo: criatura,
-      };
-    
-      if (!criatura.equipamentos) criatura.equipamentos = [];
-      criatura.equipamentos.push(selectedHandCard);
-      if (criatura?.transformar?.condicao?.(criatura, contexto)) {
-        transformarCarta(criatura, contexto);
-      }
-    
-      selectedHandCard.effect(selectedHandCard, contexto);
-    
-      const i = playerHand.indexOf(selectedHandCard);
-      if (i !== -1) playerHand.splice(i, 1);
-    
-      log(`${criatura.name} foi equipada com ${selectedHandCard.name}!`);
 
+      // aplica equipamento
+      const contexto = {
+        deck, fase: 'preparacao', opponentField, playerField,
+        playerHP, opponentHP, opponentGrave, playerGrave: grave,
+        enemiesOnField: opponentField.filter(c => c).length,
+        playerCardsOnField: playerField.filter(c => c).length,
+        deckSize: deck.length, turn, playerHand, compra: canDrawThisTurn,
+        log, permitirCompra: () => { canDrawThisTurn = true; },
+        modifyPlayerHP: d => { playerHP += d; }, modifyOpponentHP: d => { opponentHP += d; },
+        alvoCampo: criaturaAlvo
+      };
+
+      if (!criaturaAlvo.equipamentos) criaturaAlvo.equipamentos = [];
+      criaturaAlvo.equipamentos.push(carta);
+      if (criaturaAlvo.transformar?.condicao(criaturaAlvo, contexto)) {
+        transformarCarta(criaturaAlvo, contexto);
+      }
+
+      carta.effect(carta, contexto);
+      playerHand.splice(playerHand.indexOf(carta), 1);
+      log(`${criaturaAlvo.name} foi equipada com ${carta.name}!`);
       selectedHandCard = null;
       render();
       return;
     }
-        
   });
 });
 
@@ -1511,33 +1539,46 @@ document.querySelectorAll('#magic-field .magic-slot').forEach((slot, index) => {
       return;
     }
 
-    if (selectedHandCard.tipo !== 'magia') {
-      log('Apenas cartas mágicas podem ser colocadas neste slot!');
+    const carta = selectedHandCard;
+    const i = playerHand.indexOf(carta);
+
+    const isPendulo = Array.isArray(carta.subtipo) && carta.subtipo.includes('pendulo');
+
+    // Apenas magias ou criaturas pendulo podem ir para o campo de magia
+    if (carta.tipo !== 'magia' && !(carta.tipo === 'criatura' && isPendulo)) {
+      log('Apenas magias ou criaturas do tipo PÊNDULO podem ser colocadas aqui!');
       return;
     }
 
+    // Verifica se o slot está ocupado
     if (magicField[index]) {
       log('Este slot de magia já está ocupado!');
       return;
     }
 
-    const cartaMagia = selectedHandCard;
-    const i = playerHand.indexOf(cartaMagia);
-    if (i !== -1) playerHand.splice(i, 1);
+    if (i !== -1) playerHand.splice(i, 1); // Remove da mão
 
-    // Ativa o efeito
-    ativarEfeitosDasCartas('preparacao', cartaMagia);
+    // Ativa efeito (se existir) na preparação
+    ativarEfeitosDasCartas('preparacao', carta);
 
-    if (cartaMagia.subtipo === 'imediata') {
-      // Vai direto pro cemitério
-      grave.push(cartaMagia);
-      log(`${cartaMagia.name} foi ativada e enviada ao cemitério.`);
-    } else if (cartaMagia.subtipo === 'continua') {
+    if (carta.tipo === 'magia') {
+      // Magias normais
+      if (carta.subtipo === 'imediata') {
+        grave.push(carta);
+        log(`${carta.name} foi ativada e enviada ao cemitério.`);
+      } else if (carta.subtipo === 'continua') {
         magicField[index] = {
-          ...cartaMagia,
-          turnosRestantes: cartaMagia.duracao || Infinity
+          ...carta,
+          turnosRestantes: carta.duracao || Infinity
         };
-        log(`${cartaMagia.name} foi ativada e permanece no campo por ${cartaMagia.duracao} turno(s).`);
+        log(`${carta.name} foi ativada e permanece no campo por ${carta.duracao || '∞'} turno(s).`);
+      }
+    } else if (carta.tipo === 'criatura' && isPendulo) {
+      // Criaturas Pendulo — são tratadas como magia no campo
+      carta.colocadaComoPendulo = true;
+      magicField[index] = carta;
+
+      log(`${carta.name} foi colocada na zona de magia como carta PÊNDULO (Escala: ${carta.escalaMin} / ${carta.escalaMax}).`);
     }
 
     selectedHandCard = null;
@@ -2182,15 +2223,22 @@ function getTextoInvocacaoPorNivel(nivel) {
   if (nivel <= 6) return 'Requer 1 Sacrifício';
   return 'Requer 2 Sacrifícios';
 }
+function formatarSubtipos(subtipo) {
+  if (!subtipo) return '';
+  if (Array.isArray(subtipo)) {
+    return `(${subtipo.map(capitalize).join(', ')})`;
+  }
+  return `(${capitalize(subtipo)})`;
+}
 
   
 function showCardDetailsModal(card) {
   const modal = document.getElementById('card-details-modal');
   const modalContent = document.getElementById('card-details-content');
 
+  // tipo de invocação
   let tipoInvocacao = '';
   let invocacaoClass = '';
-
   if (card.tipoInvocacao === 'ambos') {
     tipoInvocacao = 'Normal e Especial';
     invocacaoClass = 'invocacao-especial';
@@ -2199,7 +2247,6 @@ function showCardDetailsModal(card) {
     invocacaoClass = 'invocacao-especial';
   } else {
     tipoInvocacao = 'Normal';
-    invocacaoClass = '';
   }
 
   function formatarAlvo(alvo) {
@@ -2213,16 +2260,36 @@ function showCardDetailsModal(card) {
     }
   }
 
+  function formatarSubtipos(subtipo) {
+    if (!subtipo) return '';
+    if (Array.isArray(subtipo)) return subtipo.map(s => capitalize(s)).join(', ');
+    return capitalize(subtipo);
+  }
+
+  // Cabeçalho
   let html = `
     <h2>${card.name}</h2>
     <img src="${card.img}" alt="${card.name}" class="modal-card-img">
   `;
 
   if (card.tipo === 'magia') {
+    // Se for pendulo (magia), mostra escala
+    const isPendulo = Array.isArray(card.subtipo) && card.subtipo.includes('pendulo');
     html += `
-      <p><strong>Tipo:</strong> Magia ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
+      <p><strong>Tipo:</strong> Magia ${card.subtipo ? `(${formatarSubtipos(card.subtipo)})` : ''}</p>
       <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
-      <p><strong>Alvo:</strong> ${formatarAlvo(card.alvo)}</p>
+    `;
+    if (isPendulo) {
+      html += `
+        <p><strong>Escala Mínima:</strong> ${card.escalaMin}</p>
+        <p><strong>Escala Máxima:</strong> ${card.escalaMax}</p>
+      `;
+    } else {
+      html += `
+        <p><strong>Alvo:</strong> ${formatarAlvo(card.alvo)}</p>
+      `;
+    }
+    html += `
       <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
       <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
     `;
@@ -2234,22 +2301,33 @@ function showCardDetailsModal(card) {
       <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
     `;
   } else {
-    // Criatura ou outro tipo padrão
+    // Criatura (inclui pendulo criatura)
+    const isPendulo = Array.isArray(card.subtipo) && card.subtipo.includes('pendulo');
     html += `
-      <p><strong>Tipo:</strong> Criatura ${card.subtipo ? `(${capitalize(card.subtipo)})` : ''}</p>
+      <p><strong>Tipo:</strong> Criatura (${formatarSubtipos(card.subtipo)})</p>
       <p><strong>Tipo de Invocação:</strong> <span class="${invocacaoClass}">${tipoInvocacao}</span></p>
       <p><strong>Nível:</strong> ${'★'.repeat(card.nivel || 1)} (${card.nivel || 1})</p>
-      <p><strong>Requisitos de Invocação:</strong> ${getTextoInvocacaoPorNivel(card.nivel || 1)}</p>
+    `;
+    if (isPendulo) {
+      html += `
+        <p><strong>Escala Mínima:</strong> ${card.escalaMin}</p>
+        <p><strong>Escala Máxima:</strong> ${card.escalaMax}</p>
+      `;
+    } else {
+      html += `
+        <p><strong>Requisitos de Invocação:</strong> ${getTextoInvocacaoPorNivel(card.nivel || 1)}</p>
+      `;
+    }
+    html += `
       <p><strong>ATK:</strong> ${card.atk}</p>
       <p><strong>DEF:</strong> ${card.def}</p>
       <p><strong>Efeito Especial:</strong> ${card.specialEffect || 'Nenhum'}</p>
       <p><strong>Descrição:</strong> ${card.description || 'Sem descrição.'}</p>
       <p><strong>Expansão:</strong> <span class="${getExpansaoClass(card.expansao)}">${card.expansao || 'Sem Expansão.'}</span></p>
       <p><strong>Palavras-chave:</strong> ${card.palavrasChave ? card.palavrasChave.join(', ') : 'Nenhuma'}</p>
-      `;
-
-    // Se tiver equipamentos anexados, exibe-os
-    if (card.equipamentos && card.equipamentos.length > 0) {
+    `;
+    // Equipamentos anexados
+    if (card.equipamentos && card.equipamentos.length) {
       html += `<hr><h3>Equipamentos Anexados:</h3>`;
       card.equipamentos.forEach(equip => {
         html += `
@@ -2265,6 +2343,7 @@ function showCardDetailsModal(card) {
   modalContent.innerHTML = html;
   modal.style.display = 'block';
 }
+
 
 function mostrarModalSacrificios(cartasDisponiveis, quantidadeNecessaria, callback) {
   const form = document.getElementById('sacrificioForm');

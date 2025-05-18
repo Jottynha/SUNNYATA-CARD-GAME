@@ -311,7 +311,7 @@ export const allCards = [
   {
     name: 'Heimdall',
     tipo:'criatura',
-    subtipo: 'personagem',
+    subtipo: ['personagem', 'pendulo'],
     atk: 4,
     def: 1,
     nivel: 3,
@@ -321,6 +321,9 @@ export const allCards = [
     tipoInvocacao: 'normal',
     palavrasChave: ['ENFRAQUECER','ESCUDO'],
     expansao: 'Hajimeru (Básico)', // Novo atributo
+    escalaMin: 3,
+    escalaMax: 5,
+    colocadaComoPendulo: false,
     effect: (self, context) => {
       if (context.playerCardsOnField >= 2 && context.fase === 'preparacao') {
         self.def += 2;

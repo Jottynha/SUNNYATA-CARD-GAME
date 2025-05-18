@@ -53,7 +53,7 @@ export const linkFusions = [
       description: 'Link Fusion de Petrichor + Helios',
       tipoInvocacao: 'especial',
       effect: (self, ctx) => { 
-        if(fase === 'preparacao') {
+        if(ctx.fase === 'preparacao') {
           const inimigosAlvo = ctx.oponente.campo.filter(carta => carta.tipo === 'criatura' && carta.atk <= 7);
           if (inimigosAlvo.length > 0) {
             const alvo = inimigosAlvo[0]; // Escolhe o primeiro válido (pode-se usar prompt se tiver UI)
@@ -532,6 +532,42 @@ export const allCards = [
       }
     }
   },
+  {
+    name: 'Contra-Magia',
+    tipo: 'magia',
+    subtipo: 'imediata',
+    img: 'cartas/ContraMagia.png',
+    description: 'Destrói uma carta de Magia em qualquer slot de magia.',
+    tipoInvocacao: 'especial',
+    alvo: 'campoMagia',
+    expansao: 'Hajimeru (Avançado)',
+    effect: (self, context) => {
+      const alvoMagia = context.alvoCampo; 
+      if (!alvoMagia) {
+        context.log(`Nenhum alvo foi selecionado para ${self.name}.`);
+        return;
+      }
+
+      // Encontra a carta no campo de magia (seja aliado ou inimigo)
+      const idx = context.magicField.findIndex(c => c === alvoMagia);
+      if (idx === -1) {
+        context.log(`${alvoMagia.name} não está em um slot de magia.`);
+        return;
+      }
+
+      // Remove do campo de magia e manda para o cemitério correto
+      context.magicField[idx] = null;
+      // Se era magia aliada, vai para your grave; se inimiga, para opponent grave
+      if (context.playerField.includes(alvoMagia) || context.playerHand.includes(alvoMagia)) {
+        context.playerGrave.push(alvoMagia);
+        context.log(`${self.name} destruiu sua Magia ${alvoMagia.name}!`);
+      } else {
+        context.opponentGrave.push(alvoMagia);
+        context.log(`${self.name} destruiu a Magia inimiga ${alvoMagia.name}!`);
+      }
+    }
+  },
+
   {
     name: 'Crânio',
     tipo: 'criatura',

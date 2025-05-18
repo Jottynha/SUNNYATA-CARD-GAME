@@ -1,11 +1,11 @@
 import { allCards, linkFusions, xyzFusions,synchroFusions } from './cards.js';
 
 // Variáveis globais
-let playerField = [null, null, null]; // Slots do jogador
-const magicField = [null, null];
+let playerField = [null, null, null, null]; // Slots do jogador
+const magicField = [null, null, null];
 let fusionField = null;
-let opponentField = [null, null, null]; // Slots do oponente
-const opponentMagicField = [null, null];
+let opponentField = [null, null, null, null]; // Slots do oponente
+const opponentMagicField = [null, null, null];
 let opponentFusionField = null;
 let DEBUG_MODE = true;
 let selectedCard = null; // Carta selecionada para combate
@@ -19,6 +19,7 @@ let playerHand = []; // cartas na mão
 let selectedHandCard = null
 let deck = [];
 const specialDeck = [];
+const opponentSpecialDeck = [];
 let opponentDeck = [];
 let opponentHand = [];
 let grave = [];
@@ -37,6 +38,13 @@ const keywordColorMap = {
   'IMUNE': 'blue',
 };
 
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
 
 function createOpponentDeck() {
   for (let i = 0; i < 20; i++) { // 20 cartas
@@ -44,10 +52,18 @@ function createOpponentDeck() {
     opponentDeck.push(randomCard);
   }
   for (let i = 0; i < 5; i++) { 
-    const randomCard = { ...opponentDeck[Math.floor(Math.random() * allCards.length)] };
+    const randomCard = { ...opponentDeck[Math.floor(Math.random() * opponentDeck.length)] };
     opponentDeck.pop(randomCard);
     opponentHand.push(randomCard);
   }
+  const extras = [...linkFusions, ...xyzFusions, ...synchroFusions]
+      .map(f => f.resultado);
+
+    shuffleArray(extras);
+    for (let i = 0; i < Math.min(5, extras.length); i++) {
+      opponentSpecialDeck.push(extras[i]);
+  }
+
 }
 
 
@@ -1630,7 +1646,7 @@ document.querySelectorAll('.opponent-slot').forEach((slot, index) => {
 async function startCombatPhase() {
   ativarEfeitosDasCartas('combate');
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     await new Promise(resolve => setTimeout(resolve, 800));
     const attacker = playerField[i];
     const defender = opponentField[i];
@@ -1795,10 +1811,8 @@ async function opponentTurn() {
     fase: 'preparacao',
     modifyPlayerHP: v => { playerHP = Math.max(0, playerHP + v); },
     modifyOpponentHP: v => { opponentHP = Math.max(0, opponentHP + v); },
-    log,
-    playerField,
-    opponentField,
-    deck: opponentDeck,
+    log, playerField, opponentField, deck: opponentDeck,
+    magicField, // para pêndulo
   };
 
   const flipped = {
@@ -1810,24 +1824,97 @@ async function opponentTurn() {
     opponentGrave: context.playerGrave,
     playerGrave: context.opponentGrave,
     deck: context.opponentDeck,
+    magicField: opponentMagicField,
   };
-  
 
-  // 3) Fusão
-  const fusaoBot = obterFusaoDisponivelEntre(opponentField.filter(Boolean));
-  if (fusaoBot && !opponentFusionField[0]) {
-    const resName = fusaoBot.resultado?.name;
-    const idxSD = specialDeck.findIndex(e => e.name === resName);
-    if (idxSD !== -1) {
-      specialDeck.splice(idxSD, 1);
-      renderSpecialDeckUI();
-      log(`’${resName}’ consumida do Deck Especial para fusão.`);
-      realizarFusao(fusaoBot.base, fusaoBot.com, fusaoBot.resultado, true);
-      log(`Oponente fundiu ${fusaoBot.base.name} + ${fusaoBot.com.name} → ${resName}`);
-      render(); await new Promise(r => setTimeout(r, 800));
-    } else {
-      log(`Fusão de ${resName} bloqueada (não está no Deck Especial).`);
+  // --- 3) TENTAR TODAS AS FUSÕES (Link, XYZ, Synchro, Pêndulo) ---
+
+  // Helper: retorna o melhor objeto de fusão com base em ATK do resultado
+  function escolherMelhorFusao(possiveis) {
+    return possiveis.reduce((best, cur) => {
+      if (!best) return cur;
+      return (cur.resultado.atk > best.resultado.atk) ? cur : best;
+    }, null);
+  }
+
+  // 3.1) Pêndulo Fusion
+  const penduloSlots = magicField.filter(c =>
+    c && c.tipo === 'criatura' && c.colocadaComoPendulo && c.subtipo.includes('pendulo')
+  );
+  if (penduloSlots.length >= 2) {
+    // soma todas as fusões Pêndulo possíveis
+    const pendulos = pendulumFusions.filter(pf => true); // assumindo lista global
+    const melhoresPF = escolherMelhorFusao(pendulos);
+    if (melhoresPF) {
+      if (invocarPorPenduloGenerica(opponentHand, opponentField)) {
+        log(`Oponente usou Pêndulo Fusion para invocar ${melhoresPF.resultado.name}!`);
+        render(); await new Promise(r => setTimeout(r, 800));
+        // após fusão pêndulo, segue direto para magias/equip
+        gotoMagiasEquip();
+        return;
+      }
     }
+  }
+
+  // 3.2) Fusões a partir do Deck Especial do Oponente
+  const possFusoes = [];
+
+  opponentSpecialDeck.forEach(resultCard => {
+    // busca no Link
+    linkFusions.forEach(f => {
+      if (f.resultado.name === resultCard.name &&
+          f.materiais.every(mat => opponentField.some(c => c && c.name === mat))) {
+        possFusoes.push({ tipo: 'link', base: f.materiais[0], com: f.materiais[1], resultado: f.resultado });
+      }
+    });
+
+    // busca no XYZ
+    xyzFusions.forEach(f => {
+      if (f.resultado.name === resultCard.name) {
+        const combos = getCombinacoesNivelExato(opponentField.filter(Boolean), f.nivelAlvo);
+        if (combos.length > 0) {
+          // pega apenas a primeira combinação válida
+          const [a, b] = combos[0];
+          possFusoes.push({ tipo: 'xyz', base: a, com: b, resultado: f.resultado });
+        }
+      }
+    });
+
+    // busca no Synchro
+    synchroFusions.forEach(f => {
+      if (f.resultado.name === resultCard.name) {
+        const combos = getCombinacoesSynchroValidas(opponentField.filter(Boolean), f.nivelAlvo);
+        if (combos.length > 0) {
+          const [tuner, ...others] = combos[0];
+          // para simplicidade, pegamos apenas o primeiro non-tuner
+          possFusoes.push({ tipo: 'synchro', base: tuner, com: others[0], resultado: f.resultado });
+        }
+      }
+    });
+
+    // (pendulum já tratado antes)
+  });
+
+  if (possFusoes.length > 0 && !opponentFusionField[0]) {
+    // escolhe pela maior ATK
+    const melhor = possFusoes.reduce((best, cur) => {
+      if (!best) return cur;
+      return (cur.resultado.atk > best.resultado.atk) ? cur : best;
+    }, null);
+
+    // consome do deck especial do oponente
+    const idxO = opponentSpecialDeck.findIndex(c => c.name === melhor.resultado.name);
+    if (idxO !== -1) {
+      opponentSpecialDeck.splice(idxO, 1);
+    }
+
+    // realiza a fusão
+    log(`’${melhor.resultado.name}’ consumida do Deck Especial (Oponente) para fusão (${melhor.tipo}).`);
+    realizarFusao(melhor.base, melhor.com, melhor.resultado, /*isOpponent=*/true);
+    log(`Oponente fundiu ${melhor.base.name} + ${melhor.com.name} → ${melhor.resultado.name}!`);
+    render(); await new Promise(r => setTimeout(r, 800));
+    gotoMagiasEquip();
+    return;
   }
 
   // 4) Invocação normal
@@ -1901,7 +1988,7 @@ async function opponentTurn() {
   }
 
   // 6) Ataques
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const atk = opponentField[i];
     const def = playerField[i];
     if (!atk) continue;
@@ -2456,9 +2543,11 @@ document.getElementById('opponent-deck').addEventListener('click', () => showCar
 document.getElementById('opponent-grave').addEventListener('click', () => showCards('Cemitério (Oponente)', opponentGrave));
 document.getElementById('special-deck-panel')
         .addEventListener('click', () => showCards('Deck Especial', specialDeck.map(e=>e.card)));  
-    
-        
-
+document.getElementById('special-deck-opponent')
+        .addEventListener('click', () => showCards(
+          'Deck Especial (Oponente)',
+          opponentSpecialDeck
+        ));
 document.getElementById('btn-regras').addEventListener('click', () => {
   document.getElementById('modal-regras').style.display = 'block';
 });

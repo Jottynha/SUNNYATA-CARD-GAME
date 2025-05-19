@@ -568,7 +568,43 @@ export const allCards = [
       }
     }
   },
-
+  {
+    name: 'Colheita Sombria',
+    tipo: 'magia',
+    subtipo: 'imediata',
+    img: 'cartas/ColheitaSombria.png',
+    description: 'Drena 3 de vida do oponente e cura o jogador em 3 pontos.',
+    tipoInvocacao: 'especial',
+    alvo: 'oponente',
+    duracao: 0,
+    expansao: 'Hajimeru (Avançado)',
+    effect: (self, context) => {
+      if (context.fase === 'preparacao') {
+        context.modifyOpponentHP(-3);
+        context.modifyPlayerHP(+3);
+        context.log(`${self.name} drenou 3 de vida do oponente e curou você em 3 pontos.`);
+      }
+    }
+  },
+    {
+    name: 'Espada Grande',
+    tipo: 'equipamento',
+    description: 'Concede +2 ATK e "FEROZ" à criatura equipada.',
+    specialEffect: 'A criatura equipada se torna apta para que entre em campo.',
+    img: 'cartas/EspadaGrande.png',
+    expansao: 'Hajimeru (Avançado)',
+    effect: (self, context) => {
+      const criatura = context.alvoCampo;
+      if (criatura) {
+        criatura.atk += 2;
+        criatura.palavrasChave = criatura.palavrasChave || [];
+        if (!criatura.palavrasChave.includes('FEROZ')) {
+          criatura.palavrasChave.push('FEROZ');
+        }
+        context.log(`${criatura.name} recebeu ${self.name} (+2 ATK e "FEROZ").`);
+      }
+    }
+  },
   {
     name: 'Crânio',
     tipo: 'criatura',

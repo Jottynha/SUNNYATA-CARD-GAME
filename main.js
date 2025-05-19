@@ -38,11 +38,13 @@ const keywordColorMap = {
   'IMUNE': 'blue',
 };
   const estatisticas = {
-    partidasJogadas: 0,
-    vitorias: 0,
-    derrotas: 0,
-    cartasJogadas: 0,
-  };
+  partidasJogadas: 0,
+  vitorias: 0,
+  derrotas: 0,
+  cartasJogadas: 0,
+  cartasUsadas: {},
+  cartaFavorita: null 
+};
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -61,6 +63,39 @@ function carregarEstatisticas() {
     // Caso não tenha no localStorage, já inicia com zeros e salva
     salvarEstatisticas();
   }
+}
+
+let cartasAnteriores = [...playerHand];
+
+function monitorarUsoDeCartas() {
+  setInterval(() => {
+    if (playerHand.length < cartasAnteriores.length) {
+      const removidas = cartasAnteriores.filter(carta => !playerHand.includes(carta));
+
+      for (const carta of removidas) {
+        const nome = carta.name;
+
+        // Contabiliza
+        estatisticas.cartasJogadas++;
+
+        // Atualiza o contador de uso de cada carta
+        if (!estatisticas.cartasUsadas[nome]) {
+          estatisticas.cartasUsadas[nome] = 1;
+        } else {
+          estatisticas.cartasUsadas[nome]++;
+        }
+
+        // Atualiza a carta favorita
+        const [favorita] = Object.entries(estatisticas.cartasUsadas)
+          .sort((a, b) => b[1] - a[1]);
+        estatisticas.cartaFavorita = favorita[0];
+      }
+
+      salvarEstatisticas();
+    }
+
+    cartasAnteriores = [...playerHand];
+  }, 1000); // Checa a cada segundo
 }
 
 
@@ -502,7 +537,7 @@ function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase
     alert(`Você precisa selecionar ou carregar exatamente ${MAX_DECK_SIZE} cartas!`);
     return;
   }
-
+  estatisticas.partidasJogadas++;
   // Oculta todos os elementos do gerenciador
   document.getElementById('deck-manager').style.display = 'none';
   document.getElementById('available-cards').style.display = 'none';
@@ -2647,6 +2682,9 @@ document.getElementById('special-deck-opponent')
 document.getElementById('btn-regras-geral').addEventListener('click', () => {
   document.getElementById('modal-regras').style.display = 'block';
 });
+document.getElementById('btn-regras').addEventListener('click', () => {
+  document.getElementById('modal-regras').style.display = 'block';
+});
 
 document.getElementById('fechar-modal').addEventListener('click', () => {
   document.getElementById('modal-regras').style.display = 'none';
@@ -2673,27 +2711,28 @@ window.addEventListener('orientationchange', checkOrientation);
 window.addEventListener('load', checkOrientation);
 
 function atualizarEstatisticas() {
-
-  const sec = document.getElementById('estatisticas-usuario');
-  sec.innerHTML = `
+  const conteudo = document.getElementById('estatisticas-conteudo');
+  conteudo.innerHTML = `
     <h2>Estatísticas do Usuário</h2>
-      <p>Partidas Jogadas: ${estatisticas.partidasJogadas}</p>
-      <p>Vitórias: ${estatisticas.vitorias}</p>
-      <p>Derrotas: ${estatisticas.derrotas}</p>
-      <p>Cartas Jogadas: ${estatisticas.cartasJogadas}</p>   
+    <p>Partidas Jogadas: ${estatisticas.partidasJogadas}</p>
+    <p>Vitórias: ${estatisticas.vitorias}</p>
+    <p>Derrotas: ${estatisticas.derrotas}</p>
+    <p>Cartas Jogadas: ${estatisticas.cartasJogadas}</p>
+    <p>Carta Favorita: ${estatisticas.cartaFavorita || 'Nenhuma'}</p>
   `;
 }
+
 
 function abrirEstatisticas() {
   document.getElementById('main-menu').style.display = 'none';
   document.getElementById('estatisticas-usuario').style.display = 'block';
-
+  document.getElementById('return-home-btn-2').addEventListener('click', voltarMenu);
   // Aqui você pode atualizar os dados das estatísticas dinamicamente
   atualizarEstatisticas();
 }
 
 function abrirDeck() {
-  document.getElementById('btn-regras-geral').style.display = 'block';
+    document.getElementById('btn-regras-geral').style.display = 'block';
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('deck-section').style.display = 'block';
     document.getElementById('game-section').style.display = 'none';
@@ -2702,7 +2741,7 @@ function abrirDeck() {
   }
 
 function voltarMenu() {
-  document.getElementById('btn-regras-geral').style.display = 'block';
+    document.getElementById('btn-regras-geral').style.display = 'block';
     document.getElementById('main-menu').style.display = 'block';
     document.getElementById('deck-section').style.display = 'none';
     document.getElementById('game-section').style.display = 'none';
@@ -2733,4 +2772,6 @@ function atualizarDeck() {
 }
 carregarEstatisticas();
 setInterval(atualizarDeck, 500);
+monitorarUsoDeCartas();
+
 window.onload = () => initDeckManager();

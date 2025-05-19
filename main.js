@@ -37,6 +37,12 @@ const keywordColorMap = {
   'FEROZ': 'orange',
   'IMUNE': 'blue',
 };
+  const estatisticas = {
+    partidasJogadas: 0,
+    vitorias: 0,
+    derrotas: 0,
+    cartasJogadas: 0,
+  };
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -44,6 +50,19 @@ function shuffleArray(arr) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
 }
+function salvarEstatisticas() {
+  localStorage.setItem('estatisticas', JSON.stringify(estatisticas));
+}
+function carregarEstatisticas() {
+  const dados = localStorage.getItem('estatisticas');
+  if (dados) {
+    Object.assign(estatisticas, JSON.parse(dados));
+  } else {
+    // Caso não tenha no localStorage, já inicia com zeros e salva
+    salvarEstatisticas();
+  }
+}
+
 
 
 function createOpponentDeck() {
@@ -473,33 +492,41 @@ function aplicarPalavrasChaveDuranteCombate(carta, tipo, valorDano, contextoBase
   // Função para iniciar o jogo
   function startGame() {
   const selectedCards = getSelectedCardsArray();
+  let deckParaUsar = [];
 
   if (selectedCards.length === MAX_DECK_SIZE) {
-    // Oculta todos os elementos do gerenciador
-    document.getElementById('deck-manager').style.display = 'none';
-    document.getElementById('available-cards').style.display = 'none';
-    document.getElementById('selected-deck').style.display = 'none';
-    document.getElementById('deck-count').style.display = 'none';
-    document.getElementById('start-game-btn').style.display = 'none';
-    document.getElementById('main-menu').style.display = 'none';
-    document.getElementById('deck-section').style.display = 'none';
-    document.getElementById('game-section').style.display = 'block';
-
-    deck = [...selectedCards];
-    shuffleDeck(deck);
-    log('Deck de 20 cartas selecionado. Iniciando o jogo...');
-    
-    for (let i = 0; i < 5; i++) {
-      const card = deck.pop();
-      playerHand.push(card);
-      lastDrawnCard = card;
-      log(`Você comprou a carta: ${card.name}!`);
-    }
-    render();
+    deckParaUsar = [...selectedCards];
+  } else if (deck && deck.length === MAX_DECK_SIZE) {
+    deckParaUsar = [...deck];
   } else {
-    alert(`Você precisa selecionar exatamente ${MAX_DECK_SIZE} cartas!`);
+    alert(`Você precisa selecionar ou carregar exatamente ${MAX_DECK_SIZE} cartas!`);
+    return;
   }
+
+  // Oculta todos os elementos do gerenciador
+  document.getElementById('deck-manager').style.display = 'none';
+  document.getElementById('available-cards').style.display = 'none';
+  document.getElementById('selected-deck').style.display = 'none';
+  document.getElementById('deck-count').style.display = 'none';
+  document.getElementById('start-game-btn').style.display = 'none';
+  document.getElementById('main-menu').style.display = 'none';
+  document.getElementById('deck-section').style.display = 'none';
+  document.getElementById('game-section').style.display = 'block';
+
+  deck = [...deckParaUsar];
+  shuffleDeck(deck);
+  log('Deck de 20 cartas carregado. Iniciando o jogo...');
+
+  for (let i = 0; i < 5; i++) {
+    const card = deck.pop();
+    playerHand.push(card);
+    lastDrawnCard = card;
+    log(`Você comprou a carta: ${card.name}!`);
+  }
+
+  render();
 }
+
 
 
   function createEquipamentCardElement(card) {
@@ -711,6 +738,7 @@ function render() {
     opponentHP = 0;
     setTimeout(() => {
       alert('Você venceu!');
+      estatisticas.vitorias++;
       restartGame();
     }, 100);
     return;
@@ -719,6 +747,7 @@ function render() {
     playerHP = 0;
     setTimeout(() => {
       alert('Você perdeu!');
+      estatisticas.derrotas++;
       restartGame();
     }, 100);
     return;
@@ -746,14 +775,27 @@ function render() {
   let escalaLabel = '';
 
   if (isPendulo) {
-    // Encontra índice do slot onde a carta está no magicField
-    const slotIndex = magicField.findIndex(c => c === card);
-    if (slotIndex === 0) {
-      escalaLabel = `Pêndulo: Escala ${card.escalaMin}`;
-    } else if (slotIndex === 1) {
-      escalaLabel = `Pêndulo: Escala ${card.escalaMax}`;
+    // Pega os índices das cartas pendulo no campo
+    const indicesPendulos = magicField
+      .map((c, i) => (c && Array.isArray(c.subtipo) && c.subtipo.includes('pendulo') ? i : -1))
+      .filter(i => i !== -1);
+
+    if (indicesPendulos.length > 0) {
+      const indiceMaisEsquerda = Math.min(...indicesPendulos);
+      const indiceMaisDireita = Math.max(...indicesPendulos);
+      const indiceCarta = magicField.findIndex(c => c === card);
+
+      if (indiceCarta === indiceMaisEsquerda) {
+        escalaLabel = `Pêndulo: Escala ${card.escalaMin}`;
+      } else if (indiceCarta === indiceMaisDireita) {
+        escalaLabel = `Pêndulo: Escala ${card.escalaMax}`;
+      } else {
+        escalaLabel = ''; // No meio não mostra escala
+      }
     }
   }
+
+
 
   if (escalaLabel) {
     text.innerHTML = `<strong>${card.name}</strong><br><em>${escalaLabel}</em>`;
@@ -1742,6 +1784,7 @@ async function startCombatPhase() {
         render();
         setTimeout(() => {
           alert('Você venceu!');
+          estatisticas.vitorias++;
           restartGame();
         }, 100);
         return;
@@ -1788,6 +1831,7 @@ async function startCombatPhase() {
         render();
         setTimeout(() => {
           alert('Você venceu!');
+          estatisticas.vitorias++;  
           restartGame();
         }, 100);
         return;
@@ -2070,6 +2114,7 @@ async function opponentTurn() {
       if (playerHP <= 0) {
         render();
         alert('Você perdeu!');
+        estatisticas.derrotas++;
         return restartGame();
       }
     }
@@ -2626,11 +2671,33 @@ function checkOrientation() {
 window.addEventListener('resize', checkOrientation);
 window.addEventListener('orientationchange', checkOrientation);
 window.addEventListener('load', checkOrientation);
+
+function atualizarEstatisticas() {
+
+  const sec = document.getElementById('estatisticas-usuario');
+  sec.innerHTML = `
+    <h2>Estatísticas do Usuário</h2>
+      <p>Partidas Jogadas: ${estatisticas.partidasJogadas}</p>
+      <p>Vitórias: ${estatisticas.vitorias}</p>
+      <p>Derrotas: ${estatisticas.derrotas}</p>
+      <p>Cartas Jogadas: ${estatisticas.cartasJogadas}</p>   
+  `;
+}
+
+function abrirEstatisticas() {
+  document.getElementById('main-menu').style.display = 'none';
+  document.getElementById('estatisticas-usuario').style.display = 'block';
+
+  // Aqui você pode atualizar os dados das estatísticas dinamicamente
+  atualizarEstatisticas();
+}
+
 function abrirDeck() {
   document.getElementById('btn-regras-geral').style.display = 'block';
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('deck-section').style.display = 'block';
     document.getElementById('game-section').style.display = 'none';
+   document.getElementById('estatisticas-usuario').style.display = 'none'; 
     
   }
 
@@ -2639,9 +2706,11 @@ function voltarMenu() {
     document.getElementById('main-menu').style.display = 'block';
     document.getElementById('deck-section').style.display = 'none';
     document.getElementById('game-section').style.display = 'none';
+    document.getElementById('estatisticas-usuario').style.display = 'none';
   }
 window.abrirDeck = abrirDeck;
 window.iniciarJogo = startGame;
+window.abrirEstatisticas = abrirEstatisticas;
 
 const tooltip = document.getElementById('deck-tooltip');
 const deckCount = document.getElementById('deck-count');
@@ -2662,6 +2731,6 @@ function atualizarDeck() {
 
   deckCount.textContent = `Cartas no deck: ${deck.length}/20`;
 }
-
+carregarEstatisticas();
 setInterval(atualizarDeck, 500);
 window.onload = () => initDeckManager();

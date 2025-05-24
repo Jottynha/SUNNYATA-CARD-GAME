@@ -45,6 +45,28 @@ const keywordColorMap = {
   cartasUsadas: {},
   cartaFavorita: null 
 };
+const climas = [
+  { nome: "Sol Escaldante", cor: "#f6c144", efeito: "aumenta ataques de fogo" },
+  { nome: "Tempestade", cor: "#3a3a70", efeito: "aumenta dano de trovão" },
+  { nome: "Neblina", cor: "#7e7e7e", efeito: "diminui precisão" },
+  { nome: "Noite Sombria", cor: "#1a1a2e", efeito: "fortalece criaturas das trevas" },
+  { nome: "Aurora Mística", cor: "#c278f1", efeito: "reforça magias" },
+  { nome: "Chuva Leve", cor: "#59788e", efeito: "regenera 1 de vida por turno" }
+];
+
+let climaAtual = null;
+
+function atualizarClima() {
+  const novoClima = climas[Math.floor(Math.random() * climas.length)];
+  climaAtual = novoClima;
+
+  // Gradiente mais sutil e menor ao centro
+  document.body.style.background = `radial-gradient(circle at center, ${novoClima.cor}11 0%, #121212 30%)`;
+
+  log(`🌀 O clima mudou para: ${novoClima.nome}! (${novoClima.efeito})`);
+}
+
+
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -1942,6 +1964,8 @@ async function opponentTurn() {
     modifyPlayerHP: v => { playerHP = Math.max(0, playerHP + v); },
     modifyOpponentHP: v => { opponentHP = Math.max(0, opponentHP + v); },
     log, playerField, opponentField, deck: opponentDeck,
+    playerHand: opponentHand, 
+    opponentHand: playerHand,
     magicField, // para pêndulo
   };
 
@@ -1953,6 +1977,7 @@ async function opponentTurn() {
     playerField: context.opponentField,
     opponentGrave: context.playerGrave,
     playerGrave: context.opponentGrave,
+    playerHand: context.opponentHand,
     deck: context.opponentDeck,
     magicField: opponentMagicField,
   };
@@ -2175,6 +2200,8 @@ async function opponentTurn() {
   invocacaoNormalFeitaOponente = false;
   render();
   log('--- Turno do Oponente Encerrado ---');
+  log('TURNO:', turn);
+  atualizarClima();
   invocacaoNormalFeita = false;
   invocacaoSacrificioFeita = false;
 }
@@ -2238,6 +2265,7 @@ document.getElementById('end-prep-btn').addEventListener('click', async () => {
       opponentHP: opponentHP,
       opponentGrave: opponentGrave,
       playerGrave: grave,
+      clima: climaAtual,
       enemiesOnField: opponentField.filter(c => c !== null).length,
       playerCardsOnField: playerField.filter(c => c !== null).length,
       deckSize: deck.length,

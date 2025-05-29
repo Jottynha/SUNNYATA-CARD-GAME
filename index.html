@@ -37,7 +37,13 @@
   </div>
   <div id="modalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
   background:rgba(0,0,0,0.5); z-index:999;"></div>
-
+  <div id="alvo-modal" class="modal-alvo" style="display:none;">
+    <div class="modal-content">
+      <h3>Selecione um alvo</h3>
+      <div id="opcoes-alvo" class="opcoes-alvo"></div>
+      <button onclick="fecharModalAlvo()">Cancelar</button>
+    </div>
+  </div>
 
   <!-- Modal de Regras -->
   <div id="modal-regras" class="modal">
@@ -72,6 +78,20 @@
           <p>Equipamentos são anexados a criaturas para fortalecê-las.</p>
           <p>Alguns equipamentos podem ativar <em>transformações especiais</em>.</p>
         </ul>
+      </div>
+
+      <div class="secao-regra">
+        <h3>Ordem de Agressividade entre os Elementos</h3>
+        <p>
+          Cada elemento é efetivo contra o próximo na ordem e vulnerável ao anterior. Quando um elemento ataca outro:
+          <br>
+          • Causa o dobro de dano se for efetivo<br>
+          • Causa metade do dano se for inefetivo
+        </p>
+        <p>
+          <strong>Hierarquia Cíclica:</strong><br>
+          Exicio → Cognição → Hemolinfa → Alento → Subsídio → Kein → Flagelo → <strong>Exicio</strong>
+        </p>
       </div>
   
       <div class="secao-regra">
@@ -214,6 +234,7 @@
       <div id="effect-buttons"></div>
     </div>
   </div>
+  
   
 
   

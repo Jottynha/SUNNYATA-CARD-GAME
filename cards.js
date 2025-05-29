@@ -515,20 +515,22 @@ export const allCards = [
     alvo: 'campoInimigo', // ou 'campoAliado', dependendo do efeito
     expansao: 'Hajimeru (Avançado)',
     effect: (self, context) => {
-      const { alvoCampo } = context;
-  
-      if (!alvoCampo) {
-        context.log(`Nenhum alvo foi selecionado para ${self.name}.`);
-        return;
-      }
-  
-      context.log(`${self.name} destruiu ${alvoCampo.name} no campo inimigo!`);
-  
-      // Remove a carta do campo inimigo
-      const index = context.opponentField.indexOf(alvoCampo);
-      if (index !== -1) {
-        context.opponentField[index] = null;
-        context.opponentGrave.push(alvoCampo);
+      if(context.fase === 'preparacao') {
+        const { alvoCampo } = context;
+    
+        if (!alvoCampo) {
+          context.log(`Nenhum alvo foi selecionado para ${self.name}.`);
+          return;
+        }
+    
+        context.log(`${self.name} destruiu ${alvoCampo.name} no campo inimigo!`);
+    
+        // Remove a carta do campo inimigo
+        const index = context.opponentField.indexOf(alvoCampo);
+        if (index !== -1) {
+          context.opponentField[index] = null;
+          context.opponentGrave.push(alvoCampo);
+        }
       }
     }
   },
@@ -944,3 +946,6 @@ const summonedCreatures = {
     }
   }
 };
+
+export const todasAsCartas = [...xyzFusions, ...synchroFusions, ...linkFusions, ...allCards];
+

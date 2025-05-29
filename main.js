@@ -1,4 +1,4 @@
-import { allCards, linkFusions, xyzFusions,synchroFusions } from './cards.js';
+import { allCards, linkFusions, xyzFusions,synchroFusions, todasAsCartas } from './cards.js';
 
 // Variáveis globais
 let playerField = [null, null, null, null]; // Slots do jogador
@@ -53,6 +53,9 @@ const climas = [
   { nome: "Aurora Mística", cor: "#c278f1", efeito: "reforça magias" },
   { nome: "Chuva Leve", cor: "#59788e", efeito: "regenera 1 de vida por turno" }
 ];
+const elementos = ['Exício', 'Cognição', 'Hemolinfa', 'Alento', 'Subsídio', 'Kein', 'Flagelo'];
+
+
 
 let climaAtual = null;
 
@@ -188,8 +191,13 @@ function renderDeckUI() {
 function salvarDecks() {
   const selectedCards = getSelectedCardsArray();
   deck = selectedCards;
-  localStorage.setItem('deck', JSON.stringify(deck));
-  localStorage.setItem('specialDeck', JSON.stringify(specialDeck));
+
+  // Salva apenas os nomes das cartas
+  const nomesDeck = deck.map(carta => carta.name);
+  const nomesSpecialDeck = specialDeck.map(carta => carta.name);
+
+  localStorage.setItem('deck', JSON.stringify(nomesDeck));
+  localStorage.setItem('specialDeck', JSON.stringify(nomesSpecialDeck));
   alert('Decks salvos com sucesso!');
   console.log('Deck Normal:', deck);
 }
@@ -199,20 +207,22 @@ function carregarDecks() {
   const deckEspecialSalvo = localStorage.getItem('specialDeck');
 
   if (deckNormalSalvo) {
-    deck = JSON.parse(deckNormalSalvo);
+    const nomesDeck = JSON.parse(deckNormalSalvo);
+    deck = nomesDeck.map(nome => todasAsCartas.find(c => c.name === nome)).filter(Boolean);
   } else {
-    deck = []; // caso não exista
+    deck = [];
   }
 
   if (deckEspecialSalvo) {
-    specialDeck = JSON.parse(deckEspecialSalvo);
+    const nomesSpecialDeck = JSON.parse(deckEspecialSalvo);
+    specialDeck = nomesSpecialDeck.map(nome => todasAsCartas.find(c => c.name === nome)).filter(Boolean);
   } else {
-    specialDeck = []; // caso não exista
+    specialDeck = [];
   }
+
   renderSpecialDeckUI();
   renderDeckUI();
   alert('Decks carregados com sucesso!');
-  
 }
 
 window.salvarDecks = salvarDecks;
@@ -967,14 +977,41 @@ function addCardToField(field, index, card) {
   }
 }
 
-// Função para realizar o combate
+
+function isElementoEfetivo(atacanteElemento, defensorElemento) {
+  const index = elementos.indexOf(atacanteElemento);
+  const efetivoContra = elementos[(index + 1) % elementos.length];
+  return defensorElemento === efetivoContra;
+}
+
+function isElementoFraco(atacanteElemento, defensorElemento) {
+  const index = elementos.indexOf(atacanteElemento);
+  const fracoContra = elementos[(index - 1 + elementos.length) % elementos.length];
+  return defensorElemento === fracoContra;
+}
+
+
 function combat(attacker, defender, attackerIndex, defenderIndex) {
   log(`${attacker.name} ataca ${defender.name}`);
+
   let dano = attacker.atk;
+
+  // Aplica modificadores de palavras-chave
   dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
   dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
-  defender.def -= dano;
 
+  // Verificações de efetividade e fraqueza
+  if (attacker.elemento && defender.elemento) {
+    if (isElementoEfetivo(attacker.elemento, defender.elemento)) {
+      dano *= 2;
+      log(`Elemento efetivo! ${attacker.elemento} é forte contra ${defender.elemento}. Dano dobrado!`);
+    } else if (isElementoFraco(attacker.elemento, defender.elemento)) {
+      dano = Math.floor(dano / 2); // Arredondamento por segurança
+      log(`Elemento fraco... ${attacker.elemento} é fraco contra ${defender.elemento}. Dano reduzido pela metade.`);
+    }
+  }
+
+  defender.def -= dano;
 
   if (defender.def <= 0) {
     log(`${defender.name} destruído`);
@@ -986,6 +1023,8 @@ function combat(attacker, defender, attackerIndex, defenderIndex) {
   log('--- Fim do Combate ---');
   turn++;
 }
+
+
 
 // Função para registrar logs
 function log(message) {
@@ -1710,13 +1749,11 @@ document.querySelectorAll('#magic-field .magic-slot').forEach((slot, index) => {
 
     const isPendulo = Array.isArray(carta.subtipo) && carta.subtipo.includes('pendulo');
 
-    // Apenas magias ou criaturas pendulo podem ir para o campo de magia
     if (carta.tipo !== 'magia' && !(carta.tipo === 'criatura' && isPendulo)) {
       log('Apenas magias ou criaturas do tipo PÊNDULO podem ser colocadas aqui!');
       return;
     }
 
-    // Verifica se o slot está ocupado
     if (magicField[index]) {
       log('Este slot de magia já está ocupado!');
       return;
@@ -1724,33 +1761,39 @@ document.querySelectorAll('#magic-field .magic-slot').forEach((slot, index) => {
 
     if (i !== -1) playerHand.splice(i, 1); // Remove da mão
 
-    // Ativa efeito (se existir) na preparação
-    ativarEfeitosDasCartas('preparacao', carta);
+    // Trata Pendulo
+    if (carta.tipo === 'criatura' && isPendulo) {
+      carta.colocadaComoPendulo = true;
+      magicField[index] = carta;
+      log(`${carta.name} foi colocada na zona de magia como carta PÊNDULO (Escala: ${carta.escalaMin} / ${carta.escalaMax}).`);
+      selectedHandCard = null;
+      render();
+      return;
+    }
 
+    // Magias
     if (carta.tipo === 'magia') {
-      // Magias normais
-      if (carta.subtipo === 'imediata') {
-        grave.push(carta);
-        log(`${carta.name} foi ativada e enviada ao cemitério.`);
-      } else if (carta.subtipo === 'continua') {
+      if (carta.subtipo === 'continua') {
         magicField[index] = {
           ...carta,
           turnosRestantes: carta.duracao || Infinity
         };
         log(`${carta.name} foi ativada e permanece no campo por ${carta.duracao || '∞'} turno(s).`);
       }
-    } else if (carta.tipo === 'criatura' && isPendulo) {
-      // Criaturas Pendulo — são tratadas como magia no campo
-      carta.colocadaComoPendulo = true;
-      magicField[index] = carta;
 
-      log(`${carta.name} foi colocada na zona de magia como carta PÊNDULO (Escala: ${carta.escalaMin} / ${carta.escalaMax}).`);
+      // Se a magia for imediata ou tiver efeito direto, ativa depois de checar alvos
+      ativarEfeitosDasCartas('preparacao', carta, () => {
+        if (carta.subtipo === 'imediata') {
+          grave.push(carta);
+          log(`${carta.name} foi ativada e enviada ao cemitério.`);
+        }
+        selectedHandCard = null;
+        render();
+      });
     }
-
-    selectedHandCard = null;
-    render();
   });
 });
+
 
 
 
@@ -1806,11 +1849,8 @@ async function startCombatPhase() {
 
       await animateAttack('player-field', i, 'opponent-field', i);
 
-      let dano = attacker.atk;
-      dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
-      dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
-      defender.def -= dano;
-
+      // Chama a lógica principal do combate
+      combat(attacker, defender, i, i);
 
       if (defender.def <= 0) {
         const defenderSlot = document.querySelectorAll(`#opponent-field .slot`)[i];
@@ -1827,8 +1867,8 @@ async function startCombatPhase() {
       } else {
         log(`${defender.name} sobreviveu com DEF ${defender.def}`);
       }
-
-    } else if (attacker && !defender) {
+    }
+ else if (attacker && !defender) {
       log(`${attacker.name} ataca diretamente!`);
 
       await animateAttack('player-field', i);
@@ -1852,49 +1892,48 @@ async function startCombatPhase() {
 
   }
   if (fusionField) {
-    const attacker = fusionField;
-    const defender = opponentFusionField || null;
-  
-    log(`${attacker.name} do Slot Especial ataca${defender ? ` ${defender.name}` : ' diretamente'}!`);
-    
-    await animateAttack('fusion-slot', 0, defender ? 'opponent-fusion-slot' : null, 0);
-  
-    if (defender) {
-      let dano = attacker.atk;
-      dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
-      dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
-      defender.def -= dano;
+  const attacker = fusionField;
+  const defender = opponentFusionField || null;
 
-  
-      if (defender.def <= 0) {
-        const defenderSlot = document.querySelector('#opponent-fusion-slot .slot');
-        const defenderCard = defenderSlot.querySelector('.card');
-        if (defenderCard) {
-          defenderCard.classList.add('destroyed');
-          await new Promise(resolve => setTimeout(resolve, 600));
-        }
-  
-        grave.push(defender);
-        opponentFusionField = null;
-        log(`${defender.name} foi destruído no Slot Especial!`);
-      } else {
-        log(`${defender.name} sobreviveu com DEF ${defender.def}`);
+  log(`${attacker.name} do Slot Especial ataca${defender ? ` ${defender.name}` : ' diretamente'}!`);
+
+  await animateAttack('fusion-slot', 0, defender ? 'opponent-fusion-slot' : null, 0);
+
+  if (defender) {
+    // Usa a função de combate com elementos
+    combat(attacker, defender, 0, 0);
+
+    if (defender.def <= 0) {
+      const defenderSlot = document.querySelector('#opponent-fusion-slot .slot');
+      const defenderCard = defenderSlot.querySelector('.card');
+      if (defenderCard) {
+        defenderCard.classList.add('destroyed');
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
-  
+
+      grave.push(defender);
+      opponentFusionField = null;
+      log(`${defender.name} foi destruído no Slot Especial!`);
     } else {
-      opponentHP -= attacker.atk;
-      if (opponentHP <= 0) {
-        opponentHP = 0;
-        render();
-        setTimeout(() => {
-          alert('Você venceu!');
-          estatisticas.vitorias++;  
-          restartGame();
-        }, 100);
-        return;
-      }
+      log(`${defender.name} sobreviveu com DEF ${defender.def}`);
+    }
+
+  } else {
+    // Dano direto ao HP do oponente
+    opponentHP -= attacker.atk;
+    if (opponentHP <= 0) {
+      opponentHP = 0;
+      render();
+      setTimeout(() => {
+        alert('Você venceu!');
+        estatisticas.vitorias++;
+        restartGame();
+      }, 100);
+      return;
     }
   }
+}
+
   render();
   canDrawThisTurn = true;
   opponentMagicField.forEach((carta, index) => {
@@ -2255,175 +2294,141 @@ document.getElementById('end-prep-btn').addEventListener('click', async () => {
     }
   }
   
-  function ativarEfeitosDasCartas(faseAtual, cartaUnica = null) {
-    const contextoBase = {
-      deck: deck,
-      fase: faseAtual,
-      opponentField: opponentField,
-      playerField: playerField,
-      playerHP: playerHP,
-      opponentHP: opponentHP,
-      opponentGrave: opponentGrave,
-      playerGrave: grave,
-      clima: climaAtual,
-      enemiesOnField: opponentField.filter(c => c !== null).length,
-      playerCardsOnField: playerField.filter(c => c !== null).length,
-      deckSize: deck.length,
-      turn: turn,
-      playerHand: playerHand,
-      compra: canDrawThisTurn,
-      log: (message) => log(message),
-      permitirCompra: () => { canDrawThisTurn = true; },
-      modifyPlayerHP: (delta) => { playerHP += delta; },
-      modifyOpponentHP: (delta) => { opponentHP += delta; },
-      
-    };
-    contextoBase.invocarCriatura = (criatura) => {
+  function ativarEfeitosDasCartas(faseAtual, cartaUnica = null, callback = () => {}) {
+  const contextoBase = {
+    deck,
+    fase: faseAtual,
+    opponentField,
+    playerField,
+    playerHP,
+    opponentHP,
+    opponentGrave,
+    playerGrave: grave,
+    clima: climaAtual,
+    enemiesOnField: opponentField.filter(c => c !== null).length,
+    playerCardsOnField: playerField.filter(c => c !== null).length,
+    deckSize: deck.length,
+    turn,
+    playerHand,
+    compra: canDrawThisTurn,
+    permitirCompra: () => { canDrawThisTurn = true; },
+    modifyPlayerHP: delta => { playerHP += delta; },
+    modifyOpponentHP: delta => { opponentHP += delta; },
+    log
+  };
 
-    
-      // Procura a primeira posição livre (null)
-      const posicaoLivre = contextoBase.playerField.findIndex(slot => slot === null);
-    
-      if (posicaoLivre !== -1) {
-        contextoBase.playerField[posicaoLivre] = criatura;
-        render();
-        contextoBase.log(`${criatura.name} foi invocada ao campo na posição ${posicaoLivre + 1}!`);
-      } else {
-        contextoBase.log(`Não há espaço disponível no campo para invocar ${criatura.name}.`);
-      }
-    };
-    
-    
-
-    if (cartaUnica && cartaUnica.tipo === 'equipamento') {
-      log(`Selecione uma criatura aliada para equipar ${cartaUnica.name}.`);
-    
-      const slots = document.querySelectorAll('#player-field .slot');
-    
-      const handleClick = (event) => {
-        const index = Array.from(slots).indexOf(event.currentTarget);
-        const criatura = playerField[index];
-    
-        if (!criatura || criatura.tipo !== 'criatura') {
-          log('Você deve escolher uma criatura aliada.');
-          return;
-        }
-    
-        slots.forEach(slot => slot.removeEventListener('click', handleClick));
-    
-        const contexto = {
-          ...contextoBase,
-          alvoCampo: criatura
-        };
-    
-        cartaUnica.effect(cartaUnica, contexto);
-        grave.push(cartaUnica); // ou grave apenas quando a criatura for destruída?
-        render();
-      };
-    
-      slots.forEach(slot => slot.addEventListener('click', handleClick));
-      return;
+  contextoBase.invocarCriatura = criatura => {
+    const posicaoLivre = contextoBase.playerField.findIndex(slot => slot === null);
+    if (posicaoLivre !== -1) {
+      contextoBase.playerField[posicaoLivre] = criatura;
+      render();
+      log(`${criatura.name} foi invocada ao campo na posição ${posicaoLivre + 1}!`);
+    } else {
+      log(`Não há espaço disponível no campo para invocar ${criatura.name}.`);
     }
-    
-  
-    // Se a carta precisar de alvo
-    if (cartaUnica && cartaUnica.alvo && (cartaUnica.alvo === 'campoInimigo' || cartaUnica.alvo === 'campoAliado')) {
-      log(`Selecione um alvo no ${cartaUnica.alvo === 'campoInimigo' ? 'campo inimigo' : 'seu campo'} para ${cartaUnica.name}.`);
-  
-      const slots = cartaUnica.alvo === 'campoInimigo'
-        ? document.querySelectorAll('#opponent-field .slot')
-        : document.querySelectorAll('#player-field .slot');
-  
-      const campoReferente = cartaUnica.alvo === 'campoInimigo' ? opponentField : playerField;
-  
-      const handleClick = (event) => {
-        const index = Array.from(slots).indexOf(event.currentTarget);
-        const alvo = campoReferente[index];
-  
-        if (!alvo) {
-          log('Esse slot está vazio. Selecione um alvo válido.');
-          return;
-        }
-  
-        // Remove listeners para evitar múltiplos cliques futuros
-        slots.forEach(slot => slot.removeEventListener('click', handleClick));
-  
-        // Continua com o efeito passando o alvo
-        const contexto = {
-          ...contextoBase,
-          alvoCampo: alvo
-        };
-  
-        if (typeof cartaUnica.effect === 'function') {
+  };
+
+  // Equipamento com seleção de alvo
+  if (cartaUnica && cartaUnica.tipo === 'equipamento') {
+    log(`Selecione uma criatura aliada para equipar ${cartaUnica.name}.`);
+    const slots = document.querySelectorAll('#player-field .slot');
+
+    const handleClick = (event) => {
+      const index = Array.from(slots).indexOf(event.currentTarget);
+      const criatura = playerField[index];
+      if (!criatura || criatura.tipo !== 'criatura') {
+        log('Você deve escolher uma criatura aliada.');
+        return;
+      }
+
+      slots.forEach(slot => slot.removeEventListener('click', handleClick));
+
+      const contexto = { ...contextoBase, alvoCampo: criatura };
+
+      cartaUnica.effect(cartaUnica, contexto);
+      grave.push(cartaUnica);
+      render();
+      callback();
+    };
+
+    slots.forEach(slot => slot.addEventListener('click', handleClick));
+    return;
+  }
+
+  // Seleção de alvo (campo inimigo ou aliado)
+  if (cartaUnica && cartaUnica.alvo && (cartaUnica.alvo === 'campoInimigo' || cartaUnica.alvo === 'campoAliado')) {
+    log(`Selecione um alvo no ${cartaUnica.alvo === 'campoInimigo' ? 'campo inimigo' : 'seu campo'} para ${cartaUnica.name}.`);
+
+    const slots = cartaUnica.alvo === 'campoInimigo'
+      ? document.querySelectorAll('#opponent-field .slot')
+      : document.querySelectorAll('#player-field .slot');
+
+    const campoReferente = cartaUnica.alvo === 'campoInimigo' ? opponentField : playerField;
+
+    const modal = document.getElementById('alvo-modal');
+    const opcoesContainer = document.getElementById('opcoes-alvo');
+    modal.style.display = 'block';
+    opcoesContainer.innerHTML = '';
+
+    slots.forEach((slot, index) => {
+      const cartaAlvo = campoReferente[index];
+      if (cartaAlvo) {
+        const botao = document.createElement('button');
+        botao.textContent = cartaAlvo.name;
+        botao.onclick = () => {
+          fecharModalAlvo();
+
+          const contexto = { ...contextoBase, alvoCampo: cartaAlvo };
           cartaUnica.effect(cartaUnica, contexto);
-          grave.push(cartaUnica); // descarta a carta depois de uso
-        }
-  
-        render();
-      };
-  
-      // Aguarda o clique do jogador
-      slots.forEach(slot => slot.addEventListener('click', handleClick));
-      return; // aguarda o clique para continuar
-    }
-  
-    // Efeitos normais sem alvo
-    if (cartaUnica) {
-      if (typeof cartaUnica.effect === 'function') {
-        cartaUnica.effect(cartaUnica, contextoBase);
-        return;
-      }
-    
-      if (Array.isArray(cartaUnica.effectOptions)) {
-        // Abre o modal para escolha
-        abrirModalEscolhaDeEfeito(cartaUnica, contextoBase);
-        return;
-      }
-    }
-    
-  
-    // Executa efeitos de todas as cartas no campo (sem alvo)
-    [...playerField, ...magicField, ...opponentField].forEach(carta => {
-      if (carta && typeof carta.effect === 'function') {
-        carta.effect(carta, contextoBase);
+          grave.push(cartaUnica);
+          render();
+          callback();
+        };
+        opcoesContainer.appendChild(botao);
       }
     });
 
-    for (const carta of playerField) {
-      if (carta != null) {
-        if (carta.def <= 0) {
-        const slotIndex = playerField.indexOf(carta);
-        const slotElement = document.querySelectorAll('#player-field .slot')[slotIndex];
+    return;
+  }
+
+  // Efeito simples direto ou com opções
+  if (cartaUnica) {
+    if (typeof cartaUnica.effect === 'function') {
+      cartaUnica.effect(cartaUnica, contextoBase);
+      callback();
+      return;
+    }
+
+    if (Array.isArray(cartaUnica.effectOptions)) {
+      abrirModalEscolhaDeEfeito(cartaUnica, contextoBase);
+      return;
+    }
+  }
+
+  // Efeitos passivos de campo
+  [...playerField, ...magicField, ...opponentField].forEach(carta => {
+    if (carta && typeof carta.effect === 'function') {
+      carta.effect(carta, contextoBase);
+    }
+  });
+
+  // Destruir criaturas com DEF <= 0
+  [playerField, opponentField].forEach((campo, isOponente) => {
+    campo.forEach((carta, index) => {
+      if (carta && carta.def <= 0) {
+        const selector = isOponente ? '#opponent-field .slot' : '#player-field .slot';
+        const slotElement = document.querySelectorAll(selector)[index];
         slotElement.classList.add('destroyed');
-  
-        // Espera a animação terminar antes de remover a carta
         setTimeout(() => {
           grave.push(carta);
-          playerField[slotIndex] = null;
+          campo[index] = null;
           render();
-        }, 600); // Duração da animação
-        }
+        }, 600);
       }
-      
-    }
-    for (const carta of opponentField) {
-      if (carta != null) {
-        if (carta.def <= 0) {
-          const slotIndex = opponentField.indexOf(carta);
-          const slotElement = document.querySelectorAll('#opponent-field .slot')[slotIndex];
-          slotElement.classList.add('destroyed');
-    
-          // Espera a animação terminar antes de remover a carta
-          setTimeout(() => {
-            grave.push(carta);
-            opponentField[slotIndex] = null;
-            render();
-          }, 600); // Duração da animação
+    });
+  });
+}
 
-        }
-    }    
-  }
-  }
 
   export function transformarCarta(carta, context) {
     const novaForma = carta.transformar?.novaForma;
@@ -2643,8 +2648,13 @@ function fecharModal() {
   document.getElementById('sacrificioModal').style.display = 'none';
   document.getElementById('modalOverlay').style.display = 'none';
 }
+function fecharModalAlvo() {
+  document.getElementById('alvo-modal').style.display = 'none';
+  // se tiver overlay específico para este modal, feche aqui também
+}
 
 window.fecharModal = fecharModal;
+window.fecharModalAlvo = fecharModalAlvo;
 window.confirmarSacrificios = confirmarSacrificios;
 
   
@@ -2798,6 +2808,7 @@ function atualizarDeck() {
 
   deckCount.textContent = `Cartas no deck: ${deck.length}/20`;
 }
+
 carregarEstatisticas();
 setInterval(atualizarDeck, 500);
 monitorarUsoDeCartas();

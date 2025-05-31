@@ -1124,3 +1124,19 @@ h1 { margin-top: 20px; }
       justify-content: center;
       z-index: 999;
     }
+
+.elemento-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: bold;
+  color: white;
+  display: inline-block;
+}
+
+.elemento-exicio { background-color: #4c494e; }     /* Roxo */
+.elemento-cognicao { background-color: #d9c300; }   /* Azul */
+.elemento-hemolinfa { background-color: #FF4136; }  /* Vermelho */
+.elemento-alento { background-color: hsl(184, 87%, 50%); }     /* Verde */
+.elemento-subsidio { background-color: #422b16; }   /* Laranja */
+.elemento-kein { background-color: #d3cbd4; }        /* Magenta */
+.elemento-flagelo { background-color: #111111; }     /* Preto */

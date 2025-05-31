@@ -90,6 +90,7 @@ export const allCards = [
     atk: 2,
     def: 3,
     nivel: 3,
+    elemento: ['Cognição','Exício'],
     img: 'cartas/Martin.png',
     description: 'Um professor com muita energia.',
     specialEffect: 'Se fortalece em +2 de Defesa e compra uma carta mágica aleatória do deck.',

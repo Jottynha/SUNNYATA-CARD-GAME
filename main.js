@@ -54,6 +54,15 @@ const climas = [
   { nome: "Chuva Leve", cor: "#59788e", efeito: "regenera 1 de vida por turno" }
 ];
 const elementos = ['Exício', 'Cognição', 'Hemolinfa', 'Alento', 'Subsídio', 'Kein', 'Flagelo'];
+const coresElementos = {
+  'Exício': 'elemento-exicio',
+  'Cognição': 'elemento-cognicao',
+  'Hemolinfa': 'elemento-hemolinfa',
+  'Alento': 'elemento-alento',
+  'Subsídio': 'elemento-subsidio',
+  'Kein': 'elemento-kein',
+  'Flagelo': 'elemento-flagelo'
+};
 
 
 
@@ -978,17 +987,30 @@ function addCardToField(field, index, card) {
 }
 
 
-function isElementoEfetivo(atacanteElemento, defensorElemento) {
-  const index = elementos.indexOf(atacanteElemento);
-  const efetivoContra = elementos[(index + 1) % elementos.length];
-  return defensorElemento === efetivoContra;
+function isElementoEfetivoMulti(atacantes, defensores) {
+  for (const a of atacantes) {
+    const index = elementos.indexOf(a);
+    if (index === -1) continue;
+    const efetivoContra = elementos[(index + 1) % elementos.length];
+    if (defensores.includes(efetivoContra)) {
+      return { efetivo: true, causa: a, alvo: efetivoContra };
+    }
+  }
+  return { efetivo: false };
 }
 
-function isElementoFraco(atacanteElemento, defensorElemento) {
-  const index = elementos.indexOf(atacanteElemento);
-  const fracoContra = elementos[(index - 1 + elementos.length) % elementos.length];
-  return defensorElemento === fracoContra;
+function isElementoFracoMulti(atacantes, defensores) {
+  for (const a of atacantes) {
+    const index = elementos.indexOf(a);
+    if (index === -1) continue;
+    const fracoContra = elementos[(index - 1 + elementos.length) % elementos.length];
+    if (defensores.includes(fracoContra)) {
+      return { fraco: true, causa: a, alvo: fracoContra };
+    }
+  }
+  return { fraco: false };
 }
+
 
 
 function combat(attacker, defender, attackerIndex, defenderIndex) {
@@ -1000,14 +1022,20 @@ function combat(attacker, defender, attackerIndex, defenderIndex) {
   dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
   dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
 
+  const elementosAtacante = Array.isArray(attacker.elemento) ? attacker.elemento : [attacker.elemento];
+  const elementosDefensor = Array.isArray(defender.elemento) ? defender.elemento : [defender.elemento];
+
   // Verificações de efetividade e fraqueza
-  if (attacker.elemento && defender.elemento) {
-    if (isElementoEfetivo(attacker.elemento, defender.elemento)) {
+  if (elementosAtacante.length && elementosDefensor.length) {
+    const efetivo = isElementoEfetivoMulti(elementosAtacante, elementosDefensor);
+    const fraco = isElementoFracoMulti(elementosAtacante, elementosDefensor);
+
+    if (efetivo.efetivo) {
       dano *= 2;
-      log(`Elemento efetivo! ${attacker.elemento} é forte contra ${defender.elemento}. Dano dobrado!`);
-    } else if (isElementoFraco(attacker.elemento, defender.elemento)) {
-      dano = Math.floor(dano / 2); // Arredondamento por segurança
-      log(`Elemento fraco... ${attacker.elemento} é fraco contra ${defender.elemento}. Dano reduzido pela metade.`);
+      log(`Elemento efetivo! ${efetivo.causa} é forte contra ${efetivo.alvo}. Dano dobrado!`);
+    } else if (fraco.fraco) {
+      dano = Math.floor(dano / 2);
+      log(`Elemento fraco... ${fraco.causa} é fraco contra ${fraco.alvo}. Dano reduzido pela metade.`);
     }
   }
 
@@ -1023,6 +1051,7 @@ function combat(attacker, defender, attackerIndex, defenderIndex) {
   log('--- Fim do Combate ---');
   turn++;
 }
+
 
 
 
@@ -2590,6 +2619,18 @@ function showCardDetailsModal(card) {
       });
     }
   }
+  if (card.elemento && Array.isArray(card.elemento)) {
+    const elementosHTML = card.elemento.map(elem => {
+      const corClasse = coresElementos[elem] || 'elemento-default'; // classe padrão se não definida
+      return `<span class="elemento-badge ${corClasse}">${elem}</span>`;
+    }).join(' ');
+
+    html += `
+      <p><strong>Elementos:</strong> ${elementosHTML}</p>
+    `;
+  }
+
+
 
   modalContent.innerHTML = html;
   modal.style.display = 'block';

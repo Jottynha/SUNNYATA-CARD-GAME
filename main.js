@@ -1,4 +1,4 @@
-import { allCards, linkFusions, xyzFusions,synchroFusions, todasAsCartas } from './cards.js';
+import { allCards, linkFusions, xyzFusions,synchroFusions, todasAsCartas, fusoesEquipamentos } from './cards.js';
 
 // Variáveis globais
 let playerField = [null, null, null, null]; // Slots do jogador
@@ -1012,45 +1012,56 @@ function isElementoFracoMulti(atacantes, defensores) {
 }
 
 
-
 function combat(attacker, defender, attackerIndex, defenderIndex) {
-  log(`${attacker.name} ataca ${defender.name}`);
+  let ataquesRestantes = temPalavraChave(attacker, 'ATAQUE DUPLO') ? 2 : 1;
 
-  let dano = attacker.atk;
-
-  // Aplica modificadores de palavras-chave
-  dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
-  dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
-
-  const elementosAtacante = Array.isArray(attacker.elemento) ? attacker.elemento : [attacker.elemento];
-  const elementosDefensor = Array.isArray(defender.elemento) ? defender.elemento : [defender.elemento];
-
-  // Verificações de efetividade e fraqueza
-  if (elementosAtacante.length && elementosDefensor.length) {
-    const efetivo = isElementoEfetivoMulti(elementosAtacante, elementosDefensor);
-    const fraco = isElementoFracoMulti(elementosAtacante, elementosDefensor);
-
-    if (efetivo.efetivo) {
-      dano *= 2;
-      log(`Elemento efetivo! ${efetivo.causa} é forte contra ${efetivo.alvo}. Dano dobrado!`);
-    } else if (fraco.fraco) {
-      dano = Math.floor(dano / 2);
-      log(`Elemento fraco... ${fraco.causa} é fraco contra ${fraco.alvo}. Dano reduzido pela metade.`);
+  while (ataquesRestantes > 0 && defender && defender.def > 0) {
+    if (ataquesRestantes === 2) {
+      log(`${attacker.name} ataca ${defender.name}`);
+    } else {
+      log(`${attacker.name} ataca novamente com ATAQUE DUPLO!`);
     }
-  }
 
-  defender.def -= dano;
+    let dano = attacker.atk;
 
-  if (defender.def <= 0) {
-    log(`${defender.name} destruído`);
-    opponentGrave.push(defender);
-    opponentField[defenderIndex] = null;
+    // Aplica modificadores de palavras-chave
+    dano = aplicarPalavrasChaveDuranteCombate(defender, 'defesa', dano);
+    dano = aplicarPalavrasChaveDuranteCombate(attacker, 'ataque', dano);
+
+    const elementosAtacante = Array.isArray(attacker.elemento) ? attacker.elemento : [attacker.elemento];
+    const elementosDefensor = Array.isArray(defender.elemento) ? defender.elemento : [defender.elemento];
+
+    // Verificações de efetividade e fraqueza
+    if (elementosAtacante.length && elementosDefensor.length) {
+      const efetivo = isElementoEfetivoMulti(elementosAtacante, elementosDefensor);
+      const fraco = isElementoFracoMulti(elementosAtacante, elementosDefensor);
+
+      if (efetivo.efetivo) {
+        dano *= 2;
+        log(`Elemento efetivo! ${efetivo.causa} é forte contra ${efetivo.alvo}. Dano dobrado!`);
+      } else if (fraco.fraco) {
+        dano = Math.floor(dano / 2);
+        log(`Elemento fraco... ${fraco.causa} é fraco contra ${fraco.alvo}. Dano reduzido pela metade.`);
+      }
+    }
+
+    defender.def -= dano;
+
+    if (defender.def <= 0) {
+      log(`${defender.name} destruído`);
+      opponentGrave.push(defender);
+      opponentField[defenderIndex] = null;
+      break; // Para ataques extras se o defensor for destruído
+    }
+
+    ataquesRestantes--;
   }
 
   render();
   log('--- Fim do Combate ---');
   turn++;
 }
+
 
 
 
@@ -1103,6 +1114,10 @@ function realizarInvocacaoCreature(index, carta, isEspecial) {
   animacaoEntradaCampo = true;
   render();
   animacaoEntradaCampo = false;
+}
+
+function temPalavraChave(carta, palavra) {
+  return carta.palavrasChave && carta.palavrasChave.includes(palavra);
 }
 
 
@@ -1245,6 +1260,26 @@ document.querySelectorAll('#player-field .slot').forEach((slot, index) => {
       playerHand.splice(playerHand.indexOf(carta), 1);
       log(`${criaturaAlvo.name} foi equipada com ${carta.name}!`);
       selectedHandCard = null;
+      const nomesEquipamentos = criaturaAlvo.equipamentos.map(eq => eq.name);
+      for (const fusao of fusoesEquipamentos) {
+        const materiaisNecessarios = fusao.materiais;
+        const possuiTodos = materiaisNecessarios.every(nome => nomesEquipamentos.includes(nome));
+
+        if (possuiTodos) {
+          // Remove os equipamentos usados
+          criaturaAlvo.equipamentos = criaturaAlvo.equipamentos.filter(eq => !materiaisNecessarios.includes(eq.name));
+
+          // Adiciona equipamento fundido
+          criaturaAlvo.equipamentos.push(fusao.resultado);
+
+          // Aplica efeito do equipamento fundido
+          fusao.resultado.effect?.(fusao.resultado, contexto);
+
+          log(`Fusão realizada! ${materiaisNecessarios.join(' + ')} → ${fusao.resultado.name}`);
+          break;
+        }
+      }
+
       render();
       return;
     }

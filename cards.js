@@ -1,5 +1,41 @@
 import { transformarCarta } from './main.js';
 
+export const fusoesEquipamentos = [
+    {
+    name: 'Espada de Pyke Desperta',
+    materiais: ['Espada Grande', 'Pyke (Despertada)'],
+    resultado: {
+      name: 'Espada de Pyke Desperta',
+      tipo: 'equipamento',
+      img: 'cartas/EspadaPykeDesperta.png',
+      description: 'Fusão de Espada Grande e Pyke Despertada. Concede +4 ATK, "FEROZ" e permite atacar duas vezes por turno.',
+      specialEffect: 'Ataques duplos são ativados se a criatura possuir 7 ou mais ATK.',
+      effect: (self, context) => {
+        const criatura = context.alvoCampo;
+        if (criatura) {
+          criatura.atk += 4;
+          criatura.palavrasChave = criatura.palavrasChave || [];
+
+          // Adiciona a palavra-chave FEROZ se ainda não tiver
+          if (!criatura.palavrasChave.includes('FEROZ')) {
+            criatura.palavrasChave.push('FEROZ');
+          }
+
+          // Permite atacar duas vezes se a criatura tiver 7 ou mais ATK
+          if (criatura.atk >= 7) {
+            criatura.palavrasChave.push('ATAQUE DUPLO');
+            context.log(`${criatura.name} agora pode atacar duas vezes por turno!`);
+          }
+
+          context.log(`${criatura.name} recebeu ${self.name} (+4 ATK, "FEROZ", possível ATAQUE DUPLO).`);
+        }
+      }
+    }
+  }
+
+];
+
+
 export const xyzFusions = [
   {
     name: 'XYZ-Golem10',
